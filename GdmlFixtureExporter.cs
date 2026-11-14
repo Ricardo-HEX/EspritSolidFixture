@@ -198,14 +198,17 @@ namespace EspritSolidFixture
             fixture.Elements("FixtureAdapter").Remove();
             fixture.Elements("WorkpieceAdapter").Remove();
 
-            // FA_1 se desplaza solo en Z hasta la parte superior. WA_1 permanece
-            // exactamente en el plano original del componente, sin transformación.
+            // FA_1 se desplaza solo en Z hasta la parte superior. WA_1 recibe el
+            // mismo desplazamiento Z que la geometría para conservar la posición
+            // del plano original del conjunto después de normalizar el origen.
             fixture.Add(new XElement("FixtureAdapter",
                 new XAttribute("nodeName", "FA_1"),
                 new XElement("Transformation",
                     new XElement("Translation", new XAttribute("trans", Vector(0, 0, topZ - baseZ))))));
             fixture.Add(new XElement("WorkpieceAdapter",
-                new XAttribute("nodeName", "WA_1")));
+                new XAttribute("nodeName", "WA_1"),
+                new XElement("Transformation",
+                    new XElement("Translation", new XAttribute("trans", Vector(0, 0, -baseZ))))));
 
             gdml.Save(path);
         }

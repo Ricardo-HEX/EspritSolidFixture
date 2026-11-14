@@ -14,7 +14,8 @@ Al aceptar se genera un GDML independiente por cada sólido, con el nombre
 `Utillaje_<NombreCAD>_Fase_<X>_Solido_<N>.gdml`. La geometría no se desplaza en X ni
 en Y: solo se normaliza en Z respecto a la altura mínima del sólido. El adaptador de
 accesorio `FA_1` se sitúa a la altura superior, mientras que el adaptador de pieza
-`WA_1` permanece exactamente en el plano original, sin transformación.
+`WA_1` recibe el mismo desplazamiento Z que la geometría para conservar el plano
+original del conjunto tras normalizar el origen.
 
 El botón **Combinar sólidos** permite crear un único GDML con toda la selección. En
 ese modo, el origen se sitúa en el centro de la base del sólido más bajo y `FA_1`
@@ -25,7 +26,8 @@ superior (Z invertido). En montaje superior ESPRIT crea copias temporales y refl
 físicamente los sólidos respecto al plano XY global; después los exporta, normaliza
 solo su coordenada Z y elimina las copias. X e Y se mantienen sin desplazamiento. En
 modo combinado se toma la Z inferior del conjunto para la geometría y la Z superior
-para `FA_1`; `WA_1` continúa en el plano original.
+para `FA_1`; `WA_1` continúa en el plano original mediante el mismo desplazamiento
+Z aplicado a la geometría.
 
 Los utillajes de la lista se pueden retirar seleccionándolos y pulsando `Supr`, o mediante clic derecho y **Eliminar**.
 
