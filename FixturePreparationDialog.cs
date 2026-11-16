@@ -163,6 +163,7 @@ namespace EspritSolidFixture
                 "Nueva configuración"
             });
             _destination.SelectedIndex = 0;
+            _destination.SelectedIndexChanged += (s, e) => RefreshState();
             layout.Controls.Add(_destination);
 
             _hint = new Label
@@ -433,12 +434,12 @@ namespace EspritSolidFixture
             string folder = DetermineOutputFolder();
             _folderText.Text = folder ?? "No se pudo determinar la ruta del CAD";
             _toolTip.SetToolTip(_folderText, _folderText.Text);
-            bool reusePreviousPart = _phase.Value >= 2 && _part == null && _stock == null;
+            bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool definePartAndStock = _part != null && _stock != null;
             _accept.Enabled = (reusePreviousPart || definePartAndStock) &&
                               _fixtures.Count > 0 && folder != null;
 
-            if (_phase.Value >= 2 && _part == null && _stock == null)
+            if (CanReusePreviousPart() && _part == null && _stock == null)
                 _hint.Text = "Se reutilizarán la pieza y el bruto de la fase anterior.";
         }
 
@@ -469,7 +470,7 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             string folder = DetermineOutputFolder();
-            bool reusePreviousPart = _phase.Value >= 2 && _part == null && _stock == null;
+            bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool definePartAndStock = _part != null && _stock != null;
             if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
                 return;
@@ -529,6 +530,12 @@ namespace EspritSolidFixture
             MessageBox.Show(this,
                 "No se pudo " + stage + ":\r\n" + exception.Message,
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private bool CanReusePreviousPart()
+        {
+            return _phase.Value >= 2 ||
+                   (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
         }
 
         private void CancelPreparation(object sender, EventArgs e)
