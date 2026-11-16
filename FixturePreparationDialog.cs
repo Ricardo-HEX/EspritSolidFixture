@@ -32,7 +32,6 @@ namespace EspritSolidFixture
         private readonly Control _stockSolidRow;
         private readonly TextBox _stockFileText;
         private readonly Button _stockBrowse;
-        private readonly NumericUpDown _phase;
         private readonly Button _accept;
         private readonly Label _hint;
         private readonly Label _countLabel;
@@ -55,6 +54,8 @@ namespace EspritSolidFixture
         private string _stockFilePath;
         private readonly Timer _nativeStockTimer;
         private bool _nativeStockWasEditing;
+        private bool _nativeStockCommandSent;
+        private StockMode _pendingNativeStockMode;
         private PendingMount _pendingMount;
         private bool _initializing = true;
 
@@ -279,20 +280,6 @@ namespace EspritSolidFixture
                 Margin = new Padding(0, 0, 0, 4)
             };
             layout.Controls.Add(_hint);
-
-            layout.Controls.Add(Section("Fase"));
-            _phase = new NumericUpDown
-            {
-                Minimum = 1,
-                Maximum = 999,
-                Value = 1,
-                Dock = DockStyle.Top,
-                Height = 28,
-                BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(0, 0, 0, 5)
-            };
-            _phase.ValueChanged += PhaseOnValueChanged;
-            layout.Controls.Add(_phase);
 
             var bottom = new FlowLayoutPanel
             {
@@ -779,27 +766,11 @@ namespace EspritSolidFixture
                 : removed + " sólidos retirados de la selección.";
         }
 
-        private void PhaseOnValueChanged(object sender, EventArgs e)
-        {
-            if (_phase.Value >= 2)
-            {
-                _mountTop.Checked = true;
-                _destination.SelectedIndex = (int)MountDestination.NewConfiguration;
-            }
-            RefreshState();
-        }
-
         private void DestinationOnSelectedIndexChanged(object sender, EventArgs e)
         {
             if ((MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration)
             {
                 _mountTop.Checked = true;
-                int nextPhase = GetNextConfigurationNumber();
-                if (_phase.Value != nextPhase)
-                {
-                    _phase.Value = nextPhase;
-                    return;
-                }
             }
             RefreshState();
         }
@@ -818,6 +789,14 @@ namespace EspritSolidFixture
                 return Math.Max(2, existingConfigurations + 1);
             }
             catch { return 2; }
+        }
+
+        private int GetAutomaticPhaseNumber()
+        {
+            return (MountDestination)_destination.SelectedIndex ==
+                   MountDestination.NewConfiguration
+                ? GetNextConfigurationNumber()
+                : 1;
         }
 
         private void FixtureBoxOnKeyDown(object sender, KeyEventArgs e)
@@ -967,7 +946,7 @@ namespace EspritSolidFixture
                     ? orderedChoices.Max(x => GetMaximumZ(x.Solid))
                     : orderedChoices.Min(x => GetMinimumZ(x.Solid));
                 paths = exporter.Export(
-                    orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
+                    orderedFixtures, folder, GetAutomaticPhaseNumber(),
                     _combine.Checked, _mountTop.Checked);
             }
             catch (Exception ex)
@@ -1036,25 +1015,18 @@ namespace EspritSolidFixture
         {
             _pendingMount = pending;
             _nativeStockWasEditing = false;
+            _nativeStockCommandSent = false;
+            _pendingNativeStockMode = mode;
             Hide();
             try
             {
-                string command = mode == StockMode.Block
-                    ? "PartSetup.AddStockBlock"
-                    : "PartSetup.AddStockBar";
-                _app.RunCommand(command);
+                // Primero se entra en la configuración de pieza. Los comandos
+                // AddStockBlock/AddStockBar solo son válidos dentro de este modo.
+                _app.RunCommand("Setup.Part");
                 try
                 {
                     Esprit.Document document = (Esprit.Document)_app.Document;
                     _nativeStockWasEditing = document.PartSetup.IsEditing;
-                    if (!_nativeStockWasEditing && document.Workpieces.Count > 0 &&
-                        document.Workpieces[1].Stocks.Count > 0)
-                    {
-                        PendingMount completed = _pendingMount;
-                        _pendingMount = null;
-                        CompleteMount(completed);
-                        return;
-                    }
                 }
                 catch { }
                 _nativeStockTimer.Start();
@@ -1083,6 +1055,14 @@ namespace EspritSolidFixture
                 if (editing)
                 {
                     _nativeStockWasEditing = true;
+                    if (!_nativeStockCommandSent)
+                    {
+                        _nativeStockCommandSent = true;
+                        string command = _pendingNativeStockMode == StockMode.Block
+                            ? "PartSetup.AddStockBlock"
+                            : "PartSetup.AddStockBar";
+                        _app.RunCommand(command);
+                    }
                     return;
                 }
                 if (!_nativeStockWasEditing) return;
@@ -1105,6 +1085,11 @@ namespace EspritSolidFixture
             {
                 _nativeStockTimer.Stop();
                 _pendingMount = null;
+                try
+                {
+                    if (_app.Document == null || IsDisposed) return;
+                }
+                catch { return; }
                 Show();
                 Activate();
                 ShowStageError("completar la definición del bruto", ex);
@@ -1120,8 +1105,8 @@ namespace EspritSolidFixture
 
         private bool CanReusePreviousPart()
         {
-            return _phase.Value >= 2 ||
-                   (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
+            return (MountDestination)_destination.SelectedIndex ==
+                   MountDestination.NewConfiguration;
         }
 
         private void CancelPreparation(object sender, EventArgs e)
