@@ -437,25 +437,54 @@ namespace EspritSolidFixture
         {
             string folder = DetermineOutputFolder();
             if (_part == null || _stock == null || _fixtures.Count == 0 || folder == null) return;
+            IReadOnlyList<string> paths;
+            try
+            {
+                var document = (Esprit.Document)_app.Document;
+                var exporter = new GdmlFixtureExporter(document);
+                paths = exporter.Export(
+                    _fixtures.Select(x => x.Solid), folder, Decimal.ToInt32(_phase.Value),
+                    _combine.Checked, _mountTop.Checked);
+            }
+            catch (Exception ex)
+            {
+                ShowStageError("crear los archivos GDML de utillaje", ex);
+                return;
+            }
+
+            Esprit.Workpiece workpiece;
             try
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                Esprit.Workpiece workpiece = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
-                var exporter = new GdmlFixtureExporter(document);
-                IReadOnlyList<string> paths = exporter.Export(
-                    _fixtures.Select(x => x.Solid), folder, Decimal.ToInt32(_phase.Value),
-                    _combine.Checked, _mountTop.Checked);
+                workpiece = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+            }
+            catch (Exception ex)
+            {
+                ShowStageError("actualizar la pieza y el bruto", ex);
+                return;
+            }
+
+            try
+            {
+                var document = (Esprit.Document)_app.Document;
+                var assembler = new EspritSetupAssembler(document);
                 assembler.MountFixturesAndWorkpiece(paths, workpiece);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "No se pudo completar la preparación y el montaje:\r\n" + ex.Message,
-                    Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ShowStageError("montar el utillaje y la pieza en la máquina", ex);
                 return;
             }
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void ShowStageError(string stage, Exception exception)
+        {
+            MessageBox.Show(this,
+                "No se pudo " + stage + ":\r\n" + exception.Message,
+                Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void CancelPreparation(object sender, EventArgs e)
