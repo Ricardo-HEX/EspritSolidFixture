@@ -10,7 +10,7 @@ Al aceptar, la extensión actualiza la primera pieza de trabajo de **Configuraci
 
 La ventana se posiciona automáticamente en la esquina superior izquierda de ESPRIT, debajo de la cinta, y utiliza una cabecera con icono, acento verde y tipografía coherentes con ESPRIT EDGE.
 
-El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir la fase 2, la extensión selecciona automáticamente **Cara superior / Z invertido** y **Nueva configuración**. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol.
+El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Z invertido**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol. En modo invertido también invierte el orden del árbol: el sólido con mayor Z original se monta primero, de forma que el conjunto completo quede reflejado.
 
 La salida utiliza la carpeta de accesorios configurada por cada cliente (`espFileTypeFixtures`) y crea dentro `Utillajes_<NombreCAD>`.
 

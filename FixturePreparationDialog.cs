@@ -163,7 +163,7 @@ namespace EspritSolidFixture
                 "Nueva configuración"
             });
             _destination.SelectedIndex = 0;
-            _destination.SelectedIndexChanged += (s, e) => RefreshState();
+            _destination.SelectedIndexChanged += DestinationOnSelectedIndexChanged;
             layout.Controls.Add(_destination);
 
             _hint = new Label
@@ -326,6 +326,20 @@ namespace EspritSolidFixture
             RefreshState();
         }
 
+        private void DestinationOnSelectedIndexChanged(object sender, EventArgs e)
+        {
+            if ((MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration)
+            {
+                _mountTop.Checked = true;
+                if (_phase.Value < 2)
+                {
+                    _phase.Value = 2;
+                    return;
+                }
+            }
+            RefreshState();
+        }
+
         private void CaptureSolids()
         {
             try
@@ -479,10 +493,10 @@ namespace EspritSolidFixture
             {
                 var document = (Esprit.Document)_app.Document;
                 var exporter = new GdmlFixtureExporter(document);
-                var orderedFixtures = _fixtures
-                    .OrderBy(x => GetMinimumZ(x.Solid))
-                    .Select(x => x.Solid)
-                    .ToList();
+                IEnumerable<SolidChoice> fixtureOrder = _mountTop.Checked
+                    ? _fixtures.OrderByDescending(x => GetMaximumZ(x.Solid))
+                    : _fixtures.OrderBy(x => GetMinimumZ(x.Solid));
+                var orderedFixtures = fixtureOrder.Select(x => x.Solid).ToList();
                 paths = exporter.Export(
                     orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
@@ -584,6 +598,18 @@ namespace EspritSolidFixture
             if (double.IsPositiveInfinity(minimum))
                 throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
             return minimum;
+        }
+
+        private static double GetMaximumZ(Esprit.Solid solid)
+        {
+            EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
+            double maximum = double.NegativeInfinity;
+            foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
+                maximum = Math.Max(maximum, vertex.Geometry.Z);
+
+            if (double.IsNegativeInfinity(maximum))
+                throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
+            return maximum;
         }
 
         private static Icon LoadEspritIcon()
