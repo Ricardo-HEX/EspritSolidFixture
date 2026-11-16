@@ -12,6 +12,9 @@ namespace EspritSolidFixture
     {
         private static readonly Color HeaderGray = Color.FromArgb(218, 218, 218);
         private static readonly Color SelectionOrange = Color.FromArgb(255, 218, 181);
+        private static readonly Color SelectionBackground = Color.FromArgb(236, 249, 250);
+        private static readonly Color EspritBlue = Color.FromArgb(0, 120, 184);
+        private static readonly Color EspritGreen = Color.FromArgb(111, 174, 57);
 
         private readonly Esprit.Application _app;
         private readonly List<SolidChoice> _fixtures = new List<SolidChoice>();
@@ -50,8 +53,8 @@ namespace EspritSolidFixture
             Icon = LoadEspritIcon();
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(640, 1010);
-            MinimumSize = new Size(656, 1049);
+            ClientSize = new Size(680, 960);
+            MinimumSize = new Size(696, 999);
             BackColor = Color.White;
 
             try
@@ -75,29 +78,23 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                Padding = new Padding(18, 16, 18, 14),
+                Padding = new Padding(20, 14, 20, 12),
                 BackColor = Color.White,
                 AutoScroll = false
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            layout.Controls.Add(new Label
-            {
-                Text = "Seleccione la pieza, el bruto y los sólidos que formarán el utillaje.",
-                Dock = DockStyle.Top,
-                Height = 42,
-                ForeColor = Color.FromArgb(70, 77, 83),
-                Padding = new Padding(2, 7, 2, 6),
-                Margin = new Padding(0, 0, 0, 8)
-            });
+            layout.Controls.Add(IntroductionPanel());
 
             layout.Controls.Add(Section("Pieza"));
             _partBox = SingleSelectionBox("Haz clic para seleccionar el sólido de pieza");
+            _partBox.AccessibleName = "Sólido de pieza";
             _partBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Part);
             layout.Controls.Add(SelectionRow(_partBox, SelectionRole.Part));
 
             layout.Controls.Add(Section("Bruto sólido"));
             _stockBox = SingleSelectionBox("Haz clic para seleccionar el sólido de bruto");
+            _stockBox.AccessibleName = "Sólido de bruto";
             _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
             layout.Controls.Add(SelectionRow(_stockBox, SelectionRole.Stock));
 
@@ -105,11 +102,12 @@ namespace EspritSolidFixture
             _fixtureBox = new ListBox
             {
                 Dock = DockStyle.Top,
-                Height = 220,
-                BackColor = Color.White,
+                Height = 175,
+                BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 SelectionMode = SelectionMode.MultiExtended,
-                IntegralHeight = false
+                IntegralHeight = false,
+                AccessibleName = "Sólidos de utillaje"
             };
             _fixtureBox.MouseDown += FixtureBoxOnMouseDown;
             _fixtureBox.KeyDown += FixtureBoxOnKeyDown;
@@ -122,7 +120,7 @@ namespace EspritSolidFixture
             {
                 Text = "0 sólidos seleccionados",
                 Dock = DockStyle.Top,
-                Height = 30,
+                Height = 26,
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = Color.FromArgb(88, 96, 103),
                 Padding = new Padding(0, 5, 2, 0),
@@ -135,12 +133,12 @@ namespace EspritSolidFixture
                 Text = "Combinar sólidos",
                 Appearance = Appearance.Button,
                 Dock = DockStyle.Top,
-                Height = 38,
+                Height = 36,
                 TextAlign = ContentAlignment.MiddleCenter,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(0, 3, 0, 10),
+                Margin = new Padding(0, 2, 0, 8),
                 Cursor = Cursors.Hand
             };
             _combine.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
@@ -153,9 +151,9 @@ namespace EspritSolidFixture
             var mountingChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 82,
+                Height = 72,
                 ColumnCount = 2,
-                Margin = new Padding(0, 0, 0, 10),
+                Margin = new Padding(0, 0, 0, 8),
                 BackColor = Color.White
             };
             mountingChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -191,12 +189,12 @@ namespace EspritSolidFixture
 
             _hint = new Label
             {
-                Text = "Haz clic en el recuadro para seleccionar sólidos.",
+                Text = "Recuadro: selección por ventana   •   Flecha: selección de sólido",
                 Dock = DockStyle.Top,
-                Height = 46,
+                Height = 40,
                 ForeColor = Color.FromArgb(78, 86, 92),
                 BackColor = Color.FromArgb(246, 248, 249),
-                Padding = new Padding(10, 10, 8, 7),
+                Padding = new Padding(10, 8, 8, 6),
                 Margin = new Padding(0, 0, 0, 4)
             };
             layout.Controls.Add(_hint);
@@ -232,8 +230,8 @@ namespace EspritSolidFixture
             var bottom = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 68,
-                Padding = new Padding(16, 16, 16, 12),
+                Height = 62,
+                Padding = new Padding(18, 14, 18, 10),
                 FlowDirection = FlowDirection.RightToLeft,
                 BackColor = SystemColors.Control
             };
@@ -296,30 +294,46 @@ namespace EspritSolidFixture
                 BackColor = Color.White
             };
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
 
             selectionBox.Dock = DockStyle.Fill;
-            selectionBox.Margin = new Padding(0, 0, 6, 0);
+            selectionBox.Margin = new Padding(0, 0, 4, 0);
             var arrow = new Button
             {
-                Text = "↖",
-                Dock = DockStyle.Top,
-                Height = 30,
-                Margin = new Padding(0),
+                Image = CreateSelectionCursorIcon(),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(26, 26),
+                Margin = new Padding(2, 1, 0, 0),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(255, 247, 205),
-                ForeColor = Color.FromArgb(45, 57, 66),
-                Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold),
+                BackColor = Color.White,
                 Cursor = Cursors.Hand,
-                TabStop = false
+                TabStop = true,
+                AccessibleName = "Seleccionar sólido completo"
             };
-            arrow.FlatAppearance.BorderColor = Color.FromArgb(210, 177, 70);
+            arrow.FlatAppearance.BorderSize = 0;
+            arrow.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 239, 167);
+            arrow.FlatAppearance.MouseDownBackColor = Color.FromArgb(255, 224, 102);
             arrow.Click += (s, e) => ActivateSolidSelection(role);
-            _toolTip.SetToolTip(arrow, "Seleccionar un sólido completo");
+            arrow.Enter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            arrow.Leave += (s, e) => ShowNativeSelectionButtonBorder((Button)s, false);
+            arrow.MouseEnter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            arrow.MouseLeave += (s, e) =>
+            {
+                if (!((Button)s).Focused) ShowNativeSelectionButtonBorder((Button)s, false);
+            };
+            _toolTip.SetToolTip(arrow,
+                "Selección individual: elige un sólido completo en la vista");
 
             row.Controls.Add(selectionBox, 0, 0);
             row.Controls.Add(arrow, 1, 0);
             return row;
+        }
+
+        private static void ShowNativeSelectionButtonBorder(Button button, bool visible)
+        {
+            button.FlatAppearance.BorderSize = visible ? 1 : 0;
+            button.FlatAppearance.BorderColor = Color.FromArgb(218, 174, 49);
         }
 
         private void ActivateWindowSelection(SelectionRole role)
@@ -343,9 +357,9 @@ namespace EspritSolidFixture
             _selectionRemovalTimer.Stop();
             _pendingRemovalKeys.Clear();
             _pendingRemovalRole = null;
-            _partBox.BackColor = role == SelectionRole.Part ? SelectionOrange : Color.White;
-            _stockBox.BackColor = role == SelectionRole.Stock ? SelectionOrange : Color.White;
-            _fixtureBox.BackColor = role == SelectionRole.Fixtures ? SelectionOrange : Color.White;
+            _partBox.BackColor = role == SelectionRole.Part ? SelectionOrange : SelectionBackground;
+            _stockBox.BackColor = role == SelectionRole.Stock ? SelectionOrange : SelectionBackground;
+            _fixtureBox.BackColor = role == SelectionRole.Fixtures ? SelectionOrange : SelectionBackground;
 
             _synchronizingSelection = true;
             try
@@ -854,16 +868,72 @@ namespace EspritSolidFixture
             catch { return (Icon)SystemIcons.Application.Clone(); }
         }
 
+        private static Control IntroductionPanel()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 58,
+                BackColor = Color.FromArgb(247, 249, 250),
+                Margin = new Padding(0, 0, 0, 8),
+                Padding = new Padding(14, 8, 10, 7)
+            };
+            panel.Controls.Add(new Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 4,
+                BackColor = EspritGreen
+            });
+            panel.Controls.Add(new Label
+            {
+                Text = "Prepare el conjunto para el montaje",
+                Dock = DockStyle.Top,
+                Height = 23,
+                Padding = new Padding(10, 0, 0, 0),
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(35, 45, 52)
+            });
+            panel.Controls.Add(new Label
+            {
+                Text = "Seleccione pieza, bruto y uno o varios sólidos de utillaje.",
+                Dock = DockStyle.Bottom,
+                Height = 21,
+                Padding = new Padding(10, 0, 0, 0),
+                ForeColor = Color.FromArgb(82, 91, 98)
+            });
+            return panel;
+        }
+
+        private static Bitmap CreateSelectionCursorIcon()
+        {
+            var bitmap = new Bitmap(16, 18);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var fill = new SolidBrush(Color.FromArgb(42, 49, 54)))
+            using (var outline = new Pen(Color.White, 1.2F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                PointF[] cursor =
+                {
+                    new PointF(2, 1), new PointF(2.5F, 14), new PointF(6, 10.8F),
+                    new PointF(8.7F, 16.5F), new PointF(11.2F, 15.3F),
+                    new PointF(8.4F, 9.8F), new PointF(13.5F, 9.2F)
+                };
+                graphics.FillPolygon(fill, cursor);
+                graphics.DrawPolygon(outline, cursor);
+            }
+            return bitmap;
+        }
+
         private static Label Section(string text) => new Label
         {
             Text = text,
             Dock = DockStyle.Top,
-            Height = 26,
+            Height = 24,
             BackColor = HeaderGray,
             ForeColor = Color.Black,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0),
-            Margin = new Padding(0, 8, 0, 6),
+            Padding = new Padding(9, 0, 0, 0),
+            Margin = new Padding(0, 7, 0, 4),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
         };
 
@@ -872,11 +942,12 @@ namespace EspritSolidFixture
             var box = new ListBox
             {
                 Dock = DockStyle.Top,
-                Height = 54,
-                BackColor = Color.White,
+                Height = 46,
+                BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 IntegralHeight = false,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
             box.Items.Add(placeholder);
             return box;
@@ -896,8 +967,8 @@ namespace EspritSolidFixture
             {
                 Text = text,
                 AutoSize = false,
-                Size = new Size(100, 34),
-                Margin = new Padding(8, 0, 0, 0),
+                Size = new Size(108, 36),
+                Margin = new Padding(10, 0, 0, 0),
                 Cursor = Cursors.Hand
             };
             button.Click += click;
@@ -938,7 +1009,7 @@ namespace EspritSolidFixture
                 ? Color.FromArgb(0, 91, 135)
                 : Color.FromArgb(47, 55, 61);
             choice.FlatAppearance.BorderColor = choice.Checked
-                ? Color.FromArgb(0, 120, 184)
+                ? EspritBlue
                 : Color.FromArgb(165, 171, 176);
             choice.FlatAppearance.BorderSize = choice.Checked ? 2 : 1;
         }
@@ -949,7 +1020,7 @@ namespace EspritSolidFixture
             button.FlatAppearance.BorderSize = 1;
             if (button.Enabled)
             {
-                button.BackColor = Color.FromArgb(0, 120, 184);
+                button.BackColor = EspritBlue;
                 button.ForeColor = Color.White;
                 button.FlatAppearance.BorderColor = Color.FromArgb(0, 102, 158);
             }
