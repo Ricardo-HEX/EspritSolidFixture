@@ -2,7 +2,7 @@
 
 Extensión para ESPRIT EDGE 2026.2 destinada a convertir sólidos CAD de utillaje en accesorios de máquina.
 
-El botón grande **Preparación de utillaje** se integra en la pestaña **Inicio**, junto a los comandos de configuración. Antes de abrir la ventana comprueba que el documento tenga una máquina cargada; si no existe, muestra una advertencia y no continúa. Con una máquina válida activa la vista de pieza y abre una ventana flotante no modal.
+El botón grande **Preparación de utillaje** se integra en la pestaña **Inicio**, junto a los comandos de configuración. Antes de abrir la ventana comprueba que el documento tenga una máquina cargada. Si no existe, pregunta si el usuario desea seleccionar una; al aceptar abre un selector en la carpeta de máquinas configurada por el cliente, carga el archivo `.mprj` y continúa automáticamente. Con una máquina válida activa la vista de pieza y abre una ventana flotante no modal.
 
 La ventana sigue la identidad visual de ESPRIT y permite seleccionar un sólido de **Pieza**, un sólido de **Bruto** y uno o varios sólidos de **Utillaje**. Los recuadros tienen fondo blanco en reposo y naranja durante la captura. Utiliza el selector nativo `GetAnyElement` con el filtro `espSolidModel`, por lo que solo permite seleccionar sólidos completos. Se pueden seleccionar varios utillajes consecutivamente y finalizar con `Esc`. Incluye fase, carpeta de salida y botones **Aceptar** y **Cancelar**. Aceptar solo se habilita cuando están definidos pieza, bruto, al menos un utillaje y una ruta CAD válida.
 

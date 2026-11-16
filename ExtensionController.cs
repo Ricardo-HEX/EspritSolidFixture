@@ -65,17 +65,69 @@ namespace EspritSolidFixture
 
             Esprit.Document document = null;
             try { document = (Esprit.Document)_app.Document; } catch { }
-            if (!EspritSetupAssembler.HasMachine(document))
-            {
-                MessageBox.Show(new EspritWindowOwner(new IntPtr(Convert.ToInt64(_app.HWND))),
-                    "El documento no contiene una máquina.\r\n\r\n" +
-                    "Monte o seleccione una máquina antes de preparar el utillaje.",
-                    "Preparación de utillaje", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            if (!EnsureMachine(document)) return;
 
             ActivatePartView();
             ShowSelectionDialog();
+        }
+
+        private bool EnsureMachine(Esprit.Document document)
+        {
+            if (EspritSetupAssembler.HasMachine(document)) return true;
+
+            var owner = new EspritWindowOwner(new IntPtr(Convert.ToInt64(_app.HWND)));
+            DialogResult answer = MessageBox.Show(owner,
+                "El documento no contiene una máquina.\r\n\r\n" +
+                "¿Desea seleccionar y montar una máquina ahora?",
+                "Preparación de utillaje", MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning, MessageBoxDefaultButton.Button1);
+            if (answer != DialogResult.Yes) return false;
+
+            string machineFolder = string.Empty;
+            try
+            {
+                machineFolder = _app.Configuration.GetFileDirectory(
+                    EspritConstants.espFileType.espFileTypeMachineSetup);
+            }
+            catch { }
+
+            using (var dialog = new OpenFileDialog
+            {
+                Title = "Seleccionar máquina de ESPRIT",
+                Filter = "Máquinas ESPRIT (*.mprj)|*.mprj|Todos los archivos (*.*)|*.*",
+                InitialDirectory = Directory.Exists(machineFolder) ? machineFolder : string.Empty,
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false,
+                RestoreDirectory = true
+            })
+            {
+                if (dialog.ShowDialog(owner) != DialogResult.OK) return false;
+
+                Esprit.MachineSetup setup = document.InitialMachineSetup;
+                try
+                {
+                    setup.BeginEdit();
+                    setup.MachineFileName = dialog.FileName;
+                    setup.EndEdit();
+                    document.Refresh();
+                }
+                catch (Exception ex)
+                {
+                    try { setup.CancelEdit(); } catch { }
+                    MessageBox.Show(owner,
+                        "No se pudo montar la máquina seleccionada:\r\n" + ex.Message,
+                        "Preparación de utillaje", MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+
+            if (EspritSetupAssembler.HasMachine(document)) return true;
+            MessageBox.Show(owner,
+                "ESPRIT no reconoció el archivo seleccionado como una máquina válida.",
+                "Preparación de utillaje", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
         }
 
         private void ActivatePartView()
