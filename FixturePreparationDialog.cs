@@ -15,6 +15,10 @@ namespace EspritSolidFixture
 
         private readonly Esprit.Application _app;
         private readonly List<SolidChoice> _fixtures = new List<SolidChoice>();
+        private SolidChoice _part;
+        private SolidChoice _stock;
+        private readonly ListBox _partBox;
+        private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
         private readonly NumericUpDown _phase;
         private readonly TextBox _folderText;
@@ -39,8 +43,8 @@ namespace EspritSolidFixture
             Icon = LoadEspritIcon();
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(540, 800);
-            MinimumSize = new Size(556, 839);
+            ClientSize = new Size(620, 960);
+            MinimumSize = new Size(636, 999);
             BackColor = Color.White;
 
             var layout = new TableLayoutPanel
@@ -55,13 +59,23 @@ namespace EspritSolidFixture
 
             layout.Controls.Add(new Label
             {
-                Text = "Seleccione uno o varios sólidos que formarán el utillaje.",
+                Text = "Seleccione la pieza, el bruto y los sólidos que formarán el utillaje.",
                 Dock = DockStyle.Top,
                 Height = 42,
                 ForeColor = Color.FromArgb(70, 77, 83),
                 Padding = new Padding(2, 7, 2, 6),
                 Margin = new Padding(0, 0, 0, 8)
             });
+
+            layout.Controls.Add(Section("Pieza"));
+            _partBox = SingleSelectionBox("Haz clic para seleccionar el sólido de pieza");
+            _partBox.MouseDown += (s, e) => BeginSingleCapture(SelectionRole.Part);
+            layout.Controls.Add(_partBox);
+
+            layout.Controls.Add(Section("Bruto sólido"));
+            _stockBox = SingleSelectionBox("Haz clic para seleccionar el sólido de bruto");
+            _stockBox.MouseDown += (s, e) => BeginSingleCapture(SelectionRole.Stock);
+            layout.Controls.Add(_stockBox);
 
             layout.Controls.Add(Section("Utillajes"));
             _fixtureBox = new ListBox
@@ -234,6 +248,55 @@ namespace EspritSolidFixture
             }
         }
 
+        private void BeginSingleCapture(SelectionRole role)
+        {
+            if (_capturing) return;
+            _capturing = true;
+            ListBox box = role == SelectionRole.Part ? _partBox : _stockBox;
+            box.BackColor = SelectionOrange;
+            _hint.Text = role == SelectionRole.Part
+                ? "Selecciona el sólido que define la pieza."
+                : "Selecciona el sólido que define el bruto.";
+            ActivatePartView();
+            BeginInvoke(new Action(() => CaptureSingleSolid(role)));
+        }
+
+        private void CaptureSingleSolid(SelectionRole role)
+        {
+            ListBox box = role == SelectionRole.Part ? _partBox : _stockBox;
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                if (document == null) return;
+                string prompt = role == SelectionRole.Part
+                    ? "Selecciona el sólido de pieza"
+                    : "Selecciona el sólido de bruto";
+                Esprit.IGraphicObject selected = document.GetAnyElement(
+                    prompt, EspritConstants.espGraphicObjectType.espSolidModel);
+                if (selected is Esprit.Solid solid)
+                {
+                    SolidChoice choice = SolidChoice.FromSolid(solid);
+                    if (role == SelectionRole.Part) _part = choice;
+                    else _stock = choice;
+                    SynchronizeGraphicSelection(document);
+                    RefreshState();
+                }
+            }
+            catch
+            {
+                // Escape cancela normalmente el selector nativo.
+            }
+            finally
+            {
+                _capturing = false;
+                if (!IsDisposed)
+                {
+                    box.BackColor = Color.White;
+                    _hint.Text = "Haz clic en cualquier recuadro para cambiar su selección.";
+                }
+            }
+        }
+
         private void CaptureSolids()
         {
             try
@@ -324,6 +387,9 @@ namespace EspritSolidFixture
 
         private void RefreshState()
         {
+            RefreshSingleBox(_partBox, _part, "Haz clic para seleccionar el sólido de pieza");
+            RefreshSingleBox(_stockBox, _stock, "Haz clic para seleccionar el sólido de bruto");
+
             _fixtureBox.BeginUpdate();
             _fixtureBox.Items.Clear();
             foreach (SolidChoice fixture in _fixtures) _fixtureBox.Items.Add(fixture);
@@ -339,13 +405,16 @@ namespace EspritSolidFixture
             string folder = DetermineOutputFolder();
             _folderText.Text = folder ?? "No se pudo determinar la ruta del CAD";
             _toolTip.SetToolTip(_folderText, _folderText.Text);
-            _accept.Enabled = _fixtures.Count > 0 && folder != null;
+            _accept.Enabled = _part != null && _stock != null &&
+                              _fixtures.Count > 0 && folder != null;
         }
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
         {
             if (document == null) return;
             document.Group.Clear();
+            if (_part != null) document.Group.Add(_part.Solid);
+            if (_stock != null) document.Group.Add(_stock.Solid);
             foreach (SolidChoice fixture in _fixtures)
                 document.Group.Add(fixture.Solid);
             document.Refresh();
@@ -367,18 +436,21 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             string folder = DetermineOutputFolder();
-            if (_fixtures.Count == 0 || folder == null) return;
+            if (_part == null || _stock == null || _fixtures.Count == 0 || folder == null) return;
             try
             {
                 var document = (Esprit.Document)_app.Document;
+                var assembler = new EspritSetupAssembler(document);
+                Esprit.Workpiece workpiece = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
                 var exporter = new GdmlFixtureExporter(document);
-                exporter.Export(
+                IReadOnlyList<string> paths = exporter.Export(
                     _fixtures.Select(x => x.Solid), folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
+                assembler.MountFixturesAndWorkpiece(paths, workpiece);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "No se pudo crear el GDML de utillaje:\r\n" + ex.Message,
+                MessageBox.Show(this, "No se pudo completar la preparación y el montaje:\r\n" + ex.Message,
                     Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
@@ -444,6 +516,29 @@ namespace EspritSolidFixture
             Margin = new Padding(0, 8, 0, 6),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
         };
+
+        private static ListBox SingleSelectionBox(string placeholder)
+        {
+            var box = new ListBox
+            {
+                Dock = DockStyle.Top,
+                Height = 54,
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                IntegralHeight = false,
+                Cursor = Cursors.Hand
+            };
+            box.Items.Add(placeholder);
+            return box;
+        }
+
+        private static void RefreshSingleBox(ListBox box, SolidChoice choice, string placeholder)
+        {
+            box.BeginUpdate();
+            box.Items.Clear();
+            box.Items.Add(choice == null ? placeholder : choice.DisplayName);
+            box.EndUpdate();
+        }
 
         private static Button ActionButton(string text, EventHandler click)
         {
@@ -572,6 +667,12 @@ namespace EspritSolidFixture
                 };
             }
             public override string ToString() => DisplayName;
+        }
+
+        private enum SelectionRole
+        {
+            Part,
+            Stock
         }
 
         [DllImport("user32.dll")]

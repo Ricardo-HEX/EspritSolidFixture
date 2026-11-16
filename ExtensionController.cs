@@ -62,6 +62,18 @@ namespace EspritSolidFixture
         {
             if (e.Key != ButtonKey) return;
             e.Handled = true;
+
+            Esprit.Document document = null;
+            try { document = (Esprit.Document)_app.Document; } catch { }
+            if (!EspritSetupAssembler.HasMachine(document))
+            {
+                MessageBox.Show(new EspritWindowOwner(new IntPtr(Convert.ToInt64(_app.HWND))),
+                    "El documento no contiene una máquina.\r\n\r\n" +
+                    "Monte o seleccione una máquina antes de preparar el utillaje.",
+                    "Preparación de utillaje", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             ActivatePartView();
             ShowSelectionDialog();
         }

@@ -2,9 +2,11 @@
 
 Extensión para ESPRIT EDGE 2026.2 destinada a convertir sólidos CAD de utillaje en accesorios de máquina.
 
-El botón grande **Preparación de utillaje** se integra en la pestaña **Inicio**, junto a los comandos de configuración. Al pulsarlo activa la vista de pieza y abre una ventana flotante no modal para seleccionar uno o varios sólidos de utillaje.
+El botón grande **Preparación de utillaje** se integra en la pestaña **Inicio**, junto a los comandos de configuración. Antes de abrir la ventana comprueba que el documento tenga una máquina cargada; si no existe, muestra una advertencia y no continúa. Con una máquina válida activa la vista de pieza y abre una ventana flotante no modal.
 
-La ventana sigue la identidad visual de ESPRIT. El recuadro de utillajes tiene fondo blanco en reposo y naranja durante la captura. Utiliza el selector nativo `GetAnyElement` con el filtro `espSolidModel`, por lo que solo permite seleccionar sólidos completos. Se pueden seleccionar varios consecutivamente y finalizar con `Esc`. Incluye fase, carpeta de salida y botones **Aceptar** y **Cancelar**. Aceptar solo se habilita con al menos un utillaje y una ruta CAD válida.
+La ventana sigue la identidad visual de ESPRIT y permite seleccionar un sólido de **Pieza**, un sólido de **Bruto** y uno o varios sólidos de **Utillaje**. Los recuadros tienen fondo blanco en reposo y naranja durante la captura. Utiliza el selector nativo `GetAnyElement` con el filtro `espSolidModel`, por lo que solo permite seleccionar sólidos completos. Se pueden seleccionar varios utillajes consecutivamente y finalizar con `Esc`. Incluye fase, carpeta de salida y botones **Aceptar** y **Cancelar**. Aceptar solo se habilita cuando están definidos pieza, bruto, al menos un utillaje y una ruta CAD válida.
+
+Al aceptar, la extensión actualiza la primera pieza de trabajo de **Configuración de pieza**: sustituye la geometría de la pieza por el sólido seleccionado y sustituye los materiales existentes por un material de tipo **Sólido** vinculado al bruto elegido. Después genera los GDML, los añade como accesorios a la configuración de máquina y monta una instancia de la pieza de trabajo sobre el accesorio principal. Cuando los utillajes no se combinan, carga todos los GDML y monta la pieza sobre el primero; cuando se combinan, utiliza el único accesorio generado.
 
 La ventana se posiciona automáticamente en la esquina superior izquierda de ESPRIT, debajo de la cinta, y utiliza una cabecera con icono, acento verde y tipografía coherentes con ESPRIT EDGE.
 
