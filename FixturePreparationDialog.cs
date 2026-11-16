@@ -442,8 +442,12 @@ namespace EspritSolidFixture
             {
                 var document = (Esprit.Document)_app.Document;
                 var exporter = new GdmlFixtureExporter(document);
+                var orderedFixtures = _fixtures
+                    .OrderBy(x => GetMinimumZ(x.Solid))
+                    .Select(x => x.Solid)
+                    .ToList();
                 paths = exporter.Export(
-                    _fixtures.Select(x => x.Solid), folder, Decimal.ToInt32(_phase.Value),
+                    orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
             }
             catch (Exception ex)
@@ -521,6 +525,18 @@ namespace EspritSolidFixture
         {
             foreach (char invalid in Path.GetInvalidFileNameChars()) value = value.Replace(invalid, '_');
             return value.Trim().TrimEnd('.');
+        }
+
+        private static double GetMinimumZ(Esprit.Solid solid)
+        {
+            EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
+            double minimum = double.PositiveInfinity;
+            foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
+                minimum = Math.Min(minimum, vertex.Geometry.Z);
+
+            if (double.IsPositiveInfinity(minimum))
+                throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
+            return minimum;
         }
 
         private static Icon LoadEspritIcon()

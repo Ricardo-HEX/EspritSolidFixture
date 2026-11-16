@@ -90,17 +90,19 @@ namespace EspritSolidFixture
             setup.BeginEdit();
             try
             {
-                var fixtures = new List<Esprit.Fixture>();
+                Esprit.MachineItems mountingItems = setup.MachineItems;
+                Esprit.Fixture topFixture = null;
                 foreach (string path in paths)
                 {
                     step = "cargar el accesorio " + Path.GetFileName(path);
-                    Esprit.Fixture fixture = setup.MachineItems.AddFixture(path);
+                    Esprit.Fixture fixture = mountingItems.AddFixture(path);
                     fixture.Name = Path.GetFileNameWithoutExtension(path);
-                    fixtures.Add(fixture);
+                    topFixture = fixture;
+                    mountingItems = fixture.MachineItems;
                 }
 
                 step = "crear la instancia de pieza sobre el accesorio";
-                Esprit.WorkpieceInstance instance = fixtures[0].MachineItems.AddWorkpieceInstance();
+                Esprit.WorkpieceInstance instance = topFixture.MachineItems.AddWorkpieceInstance();
                 // AddWorkpieceInstance enlaza automáticamente la primera pieza de
                 // trabajo. Reasignar PartWorkpiece después de crearla desde cero
                 // provoca "objeto gráfico no válido" en ESPRIT.
