@@ -23,6 +23,15 @@ namespace EspritSolidFixture
         private readonly ListBox _partBox;
         private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
+        private readonly RadioButton _stockBlock;
+        private readonly RadioButton _stockBar;
+        private readonly RadioButton _stockSolid;
+        private readonly RadioButton _stockFile;
+        private readonly Panel _stockContext;
+        private readonly Label _stockGuidance;
+        private readonly Control _stockSolidRow;
+        private readonly TextBox _stockFileText;
+        private readonly Button _stockBrowse;
         private readonly NumericUpDown _phase;
         private readonly Button _accept;
         private readonly Label _hint;
@@ -42,6 +51,12 @@ namespace EspritSolidFixture
         private bool _solidSelectionMode;
         private bool _synchronizingSelection;
         private int? _digitizeEventId;
+        private StockMode _stockMode = StockMode.Solid;
+        private string _stockFilePath;
+        private readonly Timer _nativeStockTimer;
+        private bool _nativeStockWasEditing;
+        private PendingMount _pendingMount;
+        private bool _initializing = true;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -76,6 +91,9 @@ namespace EspritSolidFixture
             _selectionRemovalTimer = new Timer { Interval = 180 };
             _selectionRemovalTimer.Tick += SelectionRemovalTimerOnTick;
 
+            _nativeStockTimer = new Timer { Interval = 300 };
+            _nativeStockTimer.Tick += NativeStockTimerOnTick;
+
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -94,11 +112,72 @@ namespace EspritSolidFixture
             _partBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Part);
             layout.Controls.Add(SelectionRow(_partBox, SelectionRole.Part));
 
-            layout.Controls.Add(Section("Bruto sólido"));
+            layout.Controls.Add(Section("Tipo de bruto"));
+            var stockChoices = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 66,
+                ColumnCount = 4,
+                Margin = new Padding(0, 0, 0, 5),
+                BackColor = Color.White
+            };
+            for (int index = 0; index < 4; index++)
+                stockChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+            _stockBlock = StockChoice("Bloque", StockMode.Block);
+            _stockBar = StockChoice("Barra", StockMode.Bar);
+            _stockSolid = StockChoice("Sólido", StockMode.Solid);
+            _stockFile = StockChoice("Desde archivo", StockMode.File);
+            _stockSolid.Checked = true;
+            stockChoices.Controls.Add(_stockBlock, 0, 0);
+            stockChoices.Controls.Add(_stockBar, 1, 0);
+            stockChoices.Controls.Add(_stockSolid, 2, 0);
+            stockChoices.Controls.Add(_stockFile, 3, 0);
+            layout.Controls.Add(stockChoices);
+
+            _stockContext = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 50,
+                Margin = new Padding(0, 0, 0, 2),
+                BackColor = Color.FromArgb(247, 249, 250),
+                Padding = new Padding(8, 5, 4, 5)
+            };
+            _stockGuidance = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(78, 86, 92)
+            };
             _stockBox = SingleSelectionBox();
             _stockBox.AccessibleName = "Sólido de bruto";
             _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
-            layout.Controls.Add(SelectionRow(_stockBox, SelectionRole.Stock));
+            _stockSolidRow = SelectionRow(_stockBox, SelectionRole.Stock);
+            _stockSolidRow.Dock = DockStyle.Fill;
+            _stockSolidRow.Margin = new Padding(0);
+            _stockFileText = new TextBox
+            {
+                ReadOnly = true,
+                Dock = DockStyle.Fill,
+                BackColor = SelectionBackground,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            _stockBrowse = new Button
+            {
+                Text = "Examinar…",
+                Dock = DockStyle.Right,
+                Width = 105,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                Cursor = Cursors.Hand
+            };
+            _stockBrowse.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            _stockBrowse.Click += BrowseStockFile;
+            _stockContext.Controls.Add(_stockGuidance);
+            _stockContext.Controls.Add(_stockSolidRow);
+            _stockContext.Controls.Add(_stockBrowse);
+            _stockContext.Controls.Add(_stockFileText);
+            layout.Controls.Add(_stockContext);
+            UpdateStockModeUi();
 
             layout.Controls.Add(Section("Utillajes"));
             _fixtureBox = new ListBox
@@ -237,6 +316,10 @@ namespace EspritSolidFixture
             AcceptButton = _accept;
             CancelButton = cancel;
 
+            _initializing = false;
+            UpdateStockModeUi();
+            RefreshState();
+
         }
 
         public void PositionAtOwnerTopLeft(IntPtr ownerHandle)
@@ -320,6 +403,100 @@ namespace EspritSolidFixture
             row.Controls.Add(arrow, 1, 0);
             _selectionButtons[role] = arrow;
             return row;
+        }
+
+        private RadioButton StockChoice(string text, StockMode mode)
+        {
+            var choice = new RadioButton
+            {
+                Text = text,
+                Tag = mode,
+                Image = CreateStockModeIcon(mode),
+                TextImageRelation = TextImageRelation.ImageAboveText,
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Appearance = Appearance.Button,
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Margin = new Padding(mode == StockMode.Block ? 0 : 4, 0,
+                    mode == StockMode.File ? 0 : 4, 0),
+                Cursor = Cursors.Hand
+            };
+            choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            choice.CheckedChanged += StockChoiceOnCheckedChanged;
+            return choice;
+        }
+
+        private void StockChoiceOnCheckedChanged(object sender, EventArgs e)
+        {
+            var choice = sender as RadioButton;
+            if (choice == null) return;
+            choice.BackColor = choice.Checked
+                ? Color.FromArgb(225, 242, 250)
+                : Color.White;
+            choice.ForeColor = choice.Checked
+                ? Color.FromArgb(0, 91, 135)
+                : Color.FromArgb(47, 55, 61);
+            choice.FlatAppearance.BorderColor = choice.Checked
+                ? EspritBlue
+                : Color.FromArgb(165, 171, 176);
+            choice.FlatAppearance.BorderSize = choice.Checked ? 2 : 1;
+            if (!choice.Checked || !(choice.Tag is StockMode mode)) return;
+            _stockMode = mode;
+            if (_initializing) return;
+            UpdateStockModeUi();
+            RefreshState();
+        }
+
+        private void UpdateStockModeUi()
+        {
+            if (_stockGuidance == null) return;
+            bool solid = _stockMode == StockMode.Solid;
+            bool file = _stockMode == StockMode.File;
+            _stockGuidance.Visible = !solid && !file;
+            _stockSolidRow.Visible = solid;
+            _stockFileText.Visible = file;
+            _stockBrowse.Visible = file;
+
+            if (_stockMode == StockMode.Block)
+                _stockGuidance.Text =
+                    "Al aceptar, defina longitud, anchura, altura y márgenes en Material en bloque.";
+            else if (_stockMode == StockMode.Bar)
+                _stockGuidance.Text =
+                    "Al aceptar, defina diámetros, longitud y margen en Material de barra.";
+            else if (file)
+                _stockFileText.Text = string.IsNullOrWhiteSpace(_stockFilePath)
+                    ? "Ningún archivo STL seleccionado"
+                    : _stockFilePath;
+
+            if (solid) _stockSolidRow.BringToFront();
+            else if (file)
+            {
+                _stockBrowse.BringToFront();
+                _stockFileText.BringToFront();
+            }
+            else _stockGuidance.BringToFront();
+        }
+
+        private void BrowseStockFile(object sender, EventArgs e)
+        {
+            using (var dialog = new OpenFileDialog
+            {
+                Title = "Seleccionar archivo STL para el bruto",
+                Filter = "Archivos STL (*.stl)|*.stl|Todos los archivos (*.*)|*.*",
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false,
+                RestoreDirectory = true
+            })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                _stockFilePath = dialog.FileName;
+                UpdateStockModeUi();
+                RefreshState();
+            }
         }
 
         private static void ShowNativeSelectionButtonBorder(Button button, bool visible)
@@ -705,7 +882,10 @@ namespace EspritSolidFixture
 
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool definePartAndStock = _part != null && _stock != null;
+            bool stockReady = _stockMode == StockMode.Block || _stockMode == StockMode.Bar ||
+                              (_stockMode == StockMode.Solid && _stock != null) ||
+                              (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+            bool definePartAndStock = _part != null && stockReady;
             _accept.Enabled = (reusePreviousPart || definePartAndStock) &&
                               _fixtures.Count > 0 && folder != null;
 
@@ -761,7 +941,10 @@ namespace EspritSolidFixture
             _activeSelectionRole = null;
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool definePartAndStock = _part != null && _stock != null;
+            bool stockReady = _stockMode == StockMode.Block || _stockMode == StockMode.Bar ||
+                              (_stockMode == StockMode.Solid && _stock != null) ||
+                              (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+            bool definePartAndStock = _part != null && stockReady;
             if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
                 return;
             IReadOnlyList<string> paths;
@@ -793,14 +976,32 @@ namespace EspritSolidFixture
                 return;
             }
 
-            string workpieceKey;
+            var pending = new PendingMount
+            {
+                Paths = paths,
+                CreateNewConfiguration =
+                    (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration,
+                RotateAssembly = _mountTop.Checked,
+                MountingStackHeight = mountingStackHeight,
+                WorkOffsetBaseZ = workOffsetBaseZ
+            };
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                workpieceKey = reusePreviousPart
-                    ? assembler.GetExistingWorkpieceKey()
-                    : assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+                if (reusePreviousPart)
+                    pending.WorkpieceKey = assembler.GetExistingWorkpieceKey();
+                else if (_stockMode == StockMode.Solid)
+                    pending.WorkpieceKey = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+                else if (_stockMode == StockMode.File)
+                    pending.WorkpieceKey = assembler.ConfigurePartAndFileStock(
+                        _part.Solid, _stockFilePath);
+                else
+                {
+                    pending.WorkpieceKey = assembler.ConfigurePartOnly(_part.Solid);
+                    BeginNativeStockDefinition(pending, _stockMode);
+                    return;
+                }
             }
             catch (Exception ex)
             {
@@ -808,15 +1009,19 @@ namespace EspritSolidFixture
                 return;
             }
 
+            CompleteMount(pending);
+        }
+
+        private void CompleteMount(PendingMount pending)
+        {
             try
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                bool newConfiguration =
-                    (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
                 assembler.MountFixturesAndWorkpiece(
-                    paths, workpieceKey, newConfiguration, _mountTop.Checked,
-                    mountingStackHeight, workOffsetBaseZ);
+                    pending.Paths, pending.WorkpieceKey, pending.CreateNewConfiguration,
+                    pending.RotateAssembly, pending.MountingStackHeight,
+                    pending.WorkOffsetBaseZ);
             }
             catch (Exception ex)
             {
@@ -825,6 +1030,85 @@ namespace EspritSolidFixture
             }
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void BeginNativeStockDefinition(PendingMount pending, StockMode mode)
+        {
+            _pendingMount = pending;
+            _nativeStockWasEditing = false;
+            Hide();
+            try
+            {
+                string command = mode == StockMode.Block
+                    ? "PartSetup.AddStockBlock"
+                    : "PartSetup.AddStockBar";
+                _app.RunCommand(command);
+                try
+                {
+                    Esprit.Document document = (Esprit.Document)_app.Document;
+                    _nativeStockWasEditing = document.PartSetup.IsEditing;
+                    if (!_nativeStockWasEditing && document.Workpieces.Count > 0 &&
+                        document.Workpieces[1].Stocks.Count > 0)
+                    {
+                        PendingMount completed = _pendingMount;
+                        _pendingMount = null;
+                        CompleteMount(completed);
+                        return;
+                    }
+                }
+                catch { }
+                _nativeStockTimer.Start();
+            }
+            catch (Exception ex)
+            {
+                _pendingMount = null;
+                Show();
+                Activate();
+                ShowStageError("abrir la definición nativa del bruto", ex);
+            }
+        }
+
+        private void NativeStockTimerOnTick(object sender, EventArgs e)
+        {
+            if (_pendingMount == null)
+            {
+                _nativeStockTimer.Stop();
+                return;
+            }
+
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                bool editing = document.PartSetup.IsEditing;
+                if (editing)
+                {
+                    _nativeStockWasEditing = true;
+                    return;
+                }
+                if (!_nativeStockWasEditing) return;
+
+                _nativeStockTimer.Stop();
+                PendingMount pending = _pendingMount;
+                _pendingMount = null;
+                bool stockCreated = document.Workpieces.Count > 0 &&
+                                    document.Workpieces[1].Stocks.Count > 0;
+                if (!stockCreated)
+                {
+                    Show();
+                    Activate();
+                    _hint.Text = "La definición del bruto se canceló. Puede intentarlo de nuevo.";
+                    return;
+                }
+                CompleteMount(pending);
+            }
+            catch (Exception ex)
+            {
+                _nativeStockTimer.Stop();
+                _pendingMount = null;
+                Show();
+                Activate();
+                ShowStageError("completar la definición del bruto", ex);
+            }
         }
 
         private void ShowStageError(string stage, Exception exception)
@@ -962,6 +1246,53 @@ namespace EspritSolidFixture
                 };
                 graphics.FillPolygon(fill, cursor);
                 graphics.DrawPolygon(outline, cursor);
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateStockModeIcon(StockMode mode)
+        {
+            var bitmap = new Bitmap(28, 24);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var gray = new SolidBrush(Color.FromArgb(170, 176, 180)))
+            using (var dark = new Pen(Color.FromArgb(105, 113, 119), 1.2F))
+            using (var yellow = new SolidBrush(Color.FromArgb(239, 196, 67)))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                if (mode == StockMode.Block)
+                {
+                    graphics.FillRectangle(gray, 5, 6, 17, 14);
+                    graphics.DrawRectangle(dark, 5, 6, 17, 14);
+                    graphics.DrawLine(dark, 5, 6, 10, 2);
+                    graphics.DrawLine(dark, 22, 6, 17, 2);
+                    graphics.DrawLine(dark, 10, 2, 17, 2);
+                }
+                else if (mode == StockMode.Bar)
+                {
+                    graphics.FillRectangle(gray, 6, 5, 16, 14);
+                    graphics.FillEllipse(gray, 6, 1, 16, 8);
+                    graphics.DrawEllipse(dark, 6, 1, 16, 8);
+                    graphics.DrawLine(dark, 6, 5, 6, 19);
+                    graphics.DrawLine(dark, 22, 5, 22, 19);
+                    graphics.DrawArc(dark, 6, 15, 16, 8, 0, 180);
+                }
+                else if (mode == StockMode.Solid)
+                {
+                    graphics.FillRectangle(gray, 3, 10, 10, 10);
+                    graphics.FillRectangle(gray, 15, 10, 10, 10);
+                    graphics.FillRectangle(gray, 9, 2, 10, 10);
+                    graphics.DrawRectangle(dark, 3, 10, 10, 10);
+                    graphics.DrawRectangle(dark, 15, 10, 10, 10);
+                    graphics.DrawRectangle(dark, 9, 2, 10, 10);
+                }
+                else
+                {
+                    graphics.FillRectangle(yellow, 3, 7, 22, 14);
+                    graphics.FillRectangle(yellow, 5, 3, 9, 6);
+                    graphics.DrawRectangle(dark, 3, 7, 22, 14);
+                    graphics.DrawLine(dark, 5, 3, 14, 3);
+                    graphics.DrawLine(dark, 14, 3, 17, 7);
+                }
             }
             return bitmap;
         }
@@ -1144,6 +1475,24 @@ namespace EspritSolidFixture
             NewConfiguration = 1
         }
 
+        private enum StockMode
+        {
+            Block,
+            Bar,
+            Solid,
+            File
+        }
+
+        private sealed class PendingMount
+        {
+            public IReadOnlyList<string> Paths { get; set; }
+            public string WorkpieceKey { get; set; }
+            public bool CreateNewConfiguration { get; set; }
+            public bool RotateAssembly { get; set; }
+            public double MountingStackHeight { get; set; }
+            public double WorkOffsetBaseZ { get; set; }
+        }
+
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             try
@@ -1162,6 +1511,9 @@ namespace EspritSolidFixture
             _selectionRemovalTimer.Stop();
             _selectionRemovalTimer.Tick -= SelectionRemovalTimerOnTick;
             _selectionRemovalTimer.Dispose();
+            _nativeStockTimer.Stop();
+            _nativeStockTimer.Tick -= NativeStockTimerOnTick;
+            _nativeStockTimer.Dispose();
             base.OnFormClosed(e);
         }
 

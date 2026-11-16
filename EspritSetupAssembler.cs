@@ -72,6 +72,60 @@ namespace EspritSolidFixture
             }
         }
 
+        public string ConfigurePartOnly(Esprit.Solid partSolid)
+        {
+            if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
+            return ConfigurePartCore(partSolid, null);
+        }
+
+        public string ConfigurePartAndFileStock(Esprit.Solid partSolid, string fileName)
+        {
+            if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+                throw new FileNotFoundException("No se encontró el archivo de bruto seleccionado.", fileName);
+
+            return ConfigurePartCore(partSolid, workpiece =>
+            {
+                Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
+                stock.Name = "Material1";
+                stock.FileName = fileName;
+            });
+        }
+
+        private string ConfigurePartCore(Esprit.Solid partSolid, Action<Esprit.Workpiece> addStock)
+        {
+            Esprit.PartSetup setup = _document.PartSetup;
+            setup.BeginEdit();
+            try
+            {
+                Esprit.Workpiece workpiece = _document.Workpieces.Count > 0
+                    ? _document.Workpieces[1]
+                    : _document.Workpieces.Add();
+                if (string.IsNullOrWhiteSpace(workpiece.Name)) workpiece.Name = "Pieza1";
+
+                Esprit.Part part = workpiece.Parts.Count > 0
+                    ? workpiece.Parts[1]
+                    : workpiece.Parts.Add();
+                if (string.IsNullOrWhiteSpace(part.Name)) part.Name = "Pieza1";
+                for (int index = part.Geometry.Count; index > 0; index--)
+                    part.Geometry.Remove(index);
+                part.Geometry.Add(partSolid);
+
+                for (int index = workpiece.Stocks.Count; index > 0; index--)
+                    workpiece.Stocks.Remove(index);
+                addStock?.Invoke(workpiece);
+
+                string workpieceKey = workpiece.Key;
+                setup.EndEdit();
+                return workpieceKey;
+            }
+            catch
+            {
+                try { setup.CancelEdit(); } catch { }
+                throw;
+            }
+        }
+
         public string GetExistingWorkpieceKey()
         {
             if (_document.Workpieces.Count == 0)
