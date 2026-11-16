@@ -12,6 +12,8 @@ La ventana se posiciona automáticamente en la esquina superior izquierda de ESP
 
 El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Giro Y 180° + Z 180°**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol.
 
+Al crear una configuración adicional, el número de fase se calcula contando la configuración inicial y todas las secuencias existentes. Por ejemplo, si ya existen Configuración 1 y Configuración 2, la siguiente se genera como Fase 3. La extensión revisa también los ceros de trabajo de todas las configuraciones y asigna el primero libre desde G54. Finalmente desplaza incrementalmente el cero automático en X, Y y Z hasta el punto de montaje situado en la base del primer accesorio del árbol.
+
 La salida utiliza la carpeta de accesorios configurada por cada cliente (`espFileTypeFixtures`) y crea dentro `Utillajes_<NombreCAD>`.
 
 Al aceptar se genera un GDML independiente por cada sólido, con el nombre

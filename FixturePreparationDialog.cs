@@ -394,7 +394,7 @@ namespace EspritSolidFixture
 
         private void PhaseOnValueChanged(object sender, EventArgs e)
         {
-            if (_phase.Value == 2)
+            if (_phase.Value >= 2)
             {
                 _mountTop.Checked = true;
                 _destination.SelectedIndex = (int)MountDestination.NewConfiguration;
@@ -407,13 +407,26 @@ namespace EspritSolidFixture
             if ((MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration)
             {
                 _mountTop.Checked = true;
-                if (_phase.Value < 2)
+                int nextPhase = GetNextConfigurationNumber();
+                if (_phase.Value != nextPhase)
                 {
-                    _phase.Value = 2;
+                    _phase.Value = nextPhase;
                     return;
                 }
             }
             RefreshState();
+        }
+
+        private int GetNextConfigurationNumber()
+        {
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                // La configuración inicial es la 1. Cada secuencia representa una
+                // configuración adicional ya existente.
+                return Math.Max(2, document.MachineSetupSequences.Count + 2);
+            }
+            catch { return 2; }
         }
 
         private void FixtureBoxOnKeyDown(object sender, KeyEventArgs e)

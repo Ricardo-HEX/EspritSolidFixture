@@ -99,6 +99,8 @@ namespace EspritSolidFixture
             if (workpiece == null)
                 throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");
 
+            int workOffsetNumber = FindNextAvailableWorkOffsetNumber();
+
             string step = createNewConfiguration
                 ? "crear la secuencia de la nueva configuración"
                 : "iniciar la edición de máquina";
@@ -158,6 +160,26 @@ namespace EspritSolidFixture
                 step = "asignar el nombre a la instancia de pieza";
                 instance.Name = workpiece.Name;
 
+                step = "asignar el siguiente cero de trabajo disponible";
+                Esprit.WorkOffset workOffset = instance.WorkOffsets.Count > 0
+                    ? instance.WorkOffsets[1]
+                    : instance.WorkOffsets.Add();
+                workOffset.WorkOffsetType =
+                    EspritConstants.espWorkOffsetType.espWorkOffsetTypeStandard;
+                workOffset.PrimaryNumber = workOffsetNumber;
+                workOffset.SecondaryNumber = 0;
+                workOffset.Name = "G" + workOffsetNumber;
+
+                step = "colocar el cero en la base del primer accesorio";
+                EspritGeometryBase.IComPoint rootPoint =
+                    rootFixture.CumulativeTransformation.P;
+                EspritGeometryBase.IComPoint currentZero =
+                    workOffset.CumulativeTransformation.P;
+                double targetZ = rootPoint.Z - (rotateAssembly ? rotatedMountingOffset : 0.0);
+                workOffset.PartShiftX += rootPoint.X - currentZero.X;
+                workOffset.PartShiftY += rootPoint.Y - currentZero.Y;
+                workOffset.PartShiftZ += targetZ - currentZero.Z;
+
                 step = "finalizar la edición de máquina";
                 setup.EndEdit();
                 _document.Refresh();
@@ -169,6 +191,39 @@ namespace EspritSolidFixture
                     try { setup.CancelEdit(); } catch { }
                 }
                 throw new InvalidOperationException("Error al " + step + ": " + ex.Message, ex);
+            }
+        }
+
+        private int FindNextAvailableWorkOffsetNumber()
+        {
+            var used = new HashSet<int>();
+            CollectWorkOffsetNumbers(_document.InitialMachineSetup.MachineItems, used);
+            foreach (Esprit.MachineSetupSequence sequence in _document.MachineSetupSequences)
+                CollectWorkOffsetNumbers(sequence.MachineSetup.MachineItems, used);
+
+            int candidate = 54;
+            while (used.Contains(candidate)) candidate++;
+            return candidate;
+        }
+
+        private static void CollectWorkOffsetNumbers(Esprit.MachineItems items, HashSet<int> used)
+        {
+            if (items == null) return;
+            for (int index = 1; index <= items.Count; index++)
+            {
+                Esprit.MachineItem item = items[index];
+                if (item is Esprit.WorkpieceInstance instance)
+                {
+                    foreach (Esprit.WorkOffset offset in instance.WorkOffsets)
+                    {
+                        if (offset.PrimaryNumber >= 54) used.Add(offset.PrimaryNumber);
+                        if (!string.IsNullOrWhiteSpace(offset.Name) &&
+                            offset.Name.StartsWith("G", StringComparison.OrdinalIgnoreCase) &&
+                            int.TryParse(offset.Name.Substring(1), out int number))
+                            used.Add(number);
+                    }
+                }
+                CollectWorkOffsetNumbers(item.MachineItems, used);
             }
         }
     }
