@@ -72,7 +72,8 @@ namespace EspritSolidFixture
             }
         }
 
-        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey)
+        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
+            bool createNewConfiguration)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
@@ -85,11 +86,31 @@ namespace EspritSolidFixture
             if (workpiece == null)
                 throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");
 
-            Esprit.MachineSetup setup = _document.InitialMachineSetup;
-            string step = "iniciar la edición de máquina";
+            string step = createNewConfiguration
+                ? "crear la nueva configuración de máquina"
+                : "iniciar la edición de máquina";
+            Esprit.MachineSetup setup;
+            if (createNewConfiguration)
+            {
+                Esprit.MachineSetupSequence sequence = _document.MachineSetupSequences.Add();
+                setup = sequence.MachineSetup;
+                setup.CopyPreviousSetup();
+            }
+            else
+            {
+                setup = _document.InitialMachineSetup;
+            }
+
             setup.BeginEdit();
             try
             {
+                if (createNewConfiguration)
+                {
+                    step = "vaciar el montaje copiado en la nueva configuración";
+                    for (int index = setup.MachineItems.Count; index > 0; index--)
+                        setup.MachineItems.Remove(index);
+                }
+
                 Esprit.MachineItems mountingItems = setup.MachineItems;
                 Esprit.Fixture topFixture = null;
                 foreach (string path in paths)

@@ -28,6 +28,7 @@ namespace EspritSolidFixture
         private readonly CheckBox _combine;
         private readonly RadioButton _mountBottom;
         private readonly RadioButton _mountTop;
+        private readonly ComboBox _destination;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private bool _capturing;
 
@@ -43,8 +44,8 @@ namespace EspritSolidFixture
             Icon = LoadEspritIcon();
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(620, 960);
-            MinimumSize = new Size(636, 999);
+            ClientSize = new Size(640, 1010);
+            MinimumSize = new Size(656, 1049);
             BackColor = Color.White;
 
             var layout = new TableLayoutPanel
@@ -148,6 +149,22 @@ namespace EspritSolidFixture
             layout.Controls.Add(mountingChoices);
             StyleMountingChoices();
 
+            layout.Controls.Add(Section("Destino del montaje"));
+            _destination = new ComboBox
+            {
+                Dock = DockStyle.Top,
+                Height = 30,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            _destination.Items.AddRange(new object[]
+            {
+                "Configuración actual",
+                "Nueva configuración"
+            });
+            _destination.SelectedIndex = 0;
+            layout.Controls.Add(_destination);
+
             _hint = new Label
             {
                 Text = "Haz clic en el recuadro para seleccionar sólidos.",
@@ -171,6 +188,7 @@ namespace EspritSolidFixture
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = new Padding(0, 0, 0, 5)
             };
+            _phase.ValueChanged += PhaseOnValueChanged;
             layout.Controls.Add(_phase);
 
             layout.Controls.Add(Section("Carpeta de salida"));
@@ -295,6 +313,13 @@ namespace EspritSolidFixture
                     _hint.Text = "Haz clic en cualquier recuadro para cambiar su selección.";
                 }
             }
+        }
+
+        private void PhaseOnValueChanged(object sender, EventArgs e)
+        {
+            if (_phase.Value != 2) return;
+            _mountTop.Checked = true;
+            _destination.SelectedIndex = (int)MountDestination.NewConfiguration;
         }
 
         private void CaptureSolids()
@@ -459,7 +484,7 @@ namespace EspritSolidFixture
             string workpieceKey;
             try
             {
-                var document = (Esprit.Document)_app.Document;
+                Esprit.Document document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
                 workpieceKey = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
             }
@@ -473,7 +498,9 @@ namespace EspritSolidFixture
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                assembler.MountFixturesAndWorkpiece(paths, workpieceKey);
+                bool newConfiguration =
+                    (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
+                assembler.MountFixturesAndWorkpiece(paths, workpieceKey, newConfiguration);
             }
             catch (Exception ex)
             {
@@ -718,6 +745,12 @@ namespace EspritSolidFixture
         {
             Part,
             Stock
+        }
+
+        private enum MountDestination
+        {
+            CurrentConfiguration = 0,
+            NewConfiguration = 1
         }
 
         [DllImport("user32.dll")]
