@@ -36,6 +36,7 @@ namespace EspritSolidFixture
         private SelectionRole? _activeSelectionRole;
         private SelectionRole? _pendingRemovalRole;
         private bool _synchronizingSelection;
+        private int? _digitizeEventId;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -61,6 +62,9 @@ namespace EspritSolidFixture
                     _documentGroup.OnAdd += DocumentGroupOnAdd;
                     _documentGroup.OnRemove += DocumentGroupOnRemove;
                 }
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                document.OnDigitize += DocumentOnDigitize;
+                document.OnDigitizeAbort += DocumentOnDigitizeAbort;
             }
             catch { }
 
@@ -314,7 +318,52 @@ namespace EspritSolidFixture
                     ? "Selecciona el bruto con un clic o una ventana en la vista."
                     : "Selecciona utillajes con clics o una ventana en la vista.";
             ActivatePartView();
+            EnableSolidDigitizing(document);
             document.Refresh();
+        }
+
+        private void EnableSolidDigitizing(Esprit.Document document)
+        {
+            DisableSolidDigitizing(document);
+            try
+            {
+                object[] mask =
+                {
+                    EspritConstants.espDigitizeType.espDigitizeSolidModel,
+                    EspritConstants.espDigitizeType.espDigitizeAllowBoxing
+                };
+                _digitizeEventId = document.EnableDigitizeEvents(
+                    "Selecciona uno o varios sólidos", mask);
+            }
+            catch
+            {
+                _digitizeEventId = null;
+            }
+        }
+
+        private void DisableSolidDigitizing(Esprit.Document document)
+        {
+            if (!_digitizeEventId.HasValue || document == null) return;
+            try { document.DisableDigitizeEvents(_digitizeEventId.Value); } catch { }
+            _digitizeEventId = null;
+        }
+
+        private void DocumentOnDigitize(object elementObject, object parentObject,
+            int graphicObjectIndex, int itemIndex)
+        {
+            if (!_activeSelectionRole.HasValue || IsDisposed) return;
+
+            Esprit.Solid solid = ResolveOwningSolid(elementObject) ?? ResolveOwningSolid(parentObject);
+            if (solid == null) return;
+
+            AddSelectedSolids(new[] { SolidChoice.FromSolid(solid) });
+        }
+
+        private void DocumentOnDigitizeAbort()
+        {
+            _digitizeEventId = null;
+            if (!IsDisposed)
+                _hint.Text = "Selección finalizada. Haz clic en un recuadro para reactivarla.";
         }
 
         private void DocumentGroupOnAdd(ref Array objects, object digitizedInfo)
@@ -336,19 +385,25 @@ namespace EspritSolidFixture
                     additions.Add(SolidChoice.FromSolid(solid));
             }
 
+            AddSelectedSolids(additions);
+            if (additions.Count == 0)
+                _hint.Text = "La selección no contenía sólidos completos.";
+        }
+
+        private void AddSelectedSolids(IReadOnlyCollection<SolidChoice> additions)
+        {
+            if (!_activeSelectionRole.HasValue || additions == null) return;
+
             SelectionRole role = _activeSelectionRole.Value;
             if (role == SelectionRole.Part && additions.Count > 0)
-                _part = additions[0];
+                _part = additions.First();
             else if (role == SelectionRole.Stock && additions.Count > 0)
-                _stock = additions[0];
+                _stock = additions.First();
             else if (role == SelectionRole.Fixtures)
                 foreach (SolidChoice solid in additions)
                     if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
 
             RefreshState();
-            // ESPRIT puede devolver caras, aristas o vértices al seleccionar por
-            // clic o ventana. Sustituimos esos subelementos por sus sólidos para
-            // mantener simultáneamente la selección por ventana y el filtro sólido.
             try { SynchronizeGraphicSelection((Esprit.Document)_app.Document); } catch { }
             _hint.Text = additions.Count == 0
                 ? "La selección no contenía sólidos completos."
@@ -930,6 +985,14 @@ namespace EspritSolidFixture
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                DisableSolidDigitizing(document);
+                document.OnDigitize -= DocumentOnDigitize;
+                document.OnDigitizeAbort -= DocumentOnDigitizeAbort;
+            }
+            catch { }
             if (_documentGroup != null)
             {
                 try { _documentGroup.OnAdd -= DocumentGroupOnAdd; } catch { }
