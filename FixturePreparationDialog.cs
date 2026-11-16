@@ -26,13 +26,14 @@ namespace EspritSolidFixture
         private readonly Label _hint;
         private readonly Label _countLabel;
         private readonly CheckBox _combine;
-        private readonly Button _windowSelection;
         private readonly RadioButton _mountBottom;
         private readonly RadioButton _mountTop;
         private readonly ComboBox _destination;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
-        private bool _capturing;
-        private bool _windowSelecting;
+        private readonly Esprit.Group _documentGroup;
+        private SelectionRole? _activeSelectionRole;
+        private bool _synchronizingSelection;
+        private bool _selectionRefreshPending;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -49,6 +50,13 @@ namespace EspritSolidFixture
             ClientSize = new Size(640, 1010);
             MinimumSize = new Size(656, 1049);
             BackColor = Color.White;
+
+            try
+            {
+                _documentGroup = ((Esprit.Document)_app.Document).Group as Esprit.Group;
+                if (_documentGroup != null) _documentGroup.OnChanged += DocumentGroupOnChanged;
+            }
+            catch { }
 
             var layout = new TableLayoutPanel
             {
@@ -72,12 +80,12 @@ namespace EspritSolidFixture
 
             layout.Controls.Add(Section("Pieza"));
             _partBox = SingleSelectionBox("Haz clic para seleccionar el sólido de pieza");
-            _partBox.MouseDown += (s, e) => BeginSingleCapture(SelectionRole.Part);
+            _partBox.MouseDown += (s, e) => ActivateNativeSelection(SelectionRole.Part);
             layout.Controls.Add(_partBox);
 
             layout.Controls.Add(Section("Bruto sólido"));
             _stockBox = SingleSelectionBox("Haz clic para seleccionar el sólido de bruto");
-            _stockBox.MouseDown += (s, e) => BeginSingleCapture(SelectionRole.Stock);
+            _stockBox.MouseDown += (s, e) => ActivateNativeSelection(SelectionRole.Stock);
             layout.Controls.Add(_stockBox);
 
             layout.Controls.Add(Section("Utillajes"));
@@ -109,51 +117,24 @@ namespace EspritSolidFixture
             };
             layout.Controls.Add(_countLabel);
 
-            var fixtureActions = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                Height = 42,
-                ColumnCount = 2,
-                Margin = new Padding(0, 3, 0, 10),
-                BackColor = Color.White
-            };
-            fixtureActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            fixtureActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-
-            _windowSelection = new Button
-            {
-                Text = "Selección por ventana",
-                Dock = DockStyle.Fill,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(0, 0, 6, 0),
-                Cursor = Cursors.Hand
-            };
-            _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
-            _windowSelection.Click += WindowSelectionOnClick;
-            _toolTip.SetToolTip(_windowSelection,
-                "Permite seleccionar varios sólidos mediante una ventana en la vista.");
-
             _combine = new CheckBox
             {
                 Text = "Combinar sólidos",
                 Appearance = Appearance.Button,
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                Height = 38,
                 TextAlign = ContentAlignment.MiddleCenter,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(6, 0, 0, 0),
+                Margin = new Padding(0, 3, 0, 10),
                 Cursor = Cursors.Hand
             };
             _combine.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _combine.CheckedChanged += (s, e) => StyleCombineButton();
             _toolTip.SetToolTip(_combine,
                 "Crea un único GDML con todos los sólidos seleccionados.");
-            fixtureActions.Controls.Add(_windowSelection, 0, 0);
-            fixtureActions.Controls.Add(_combine, 1, 0);
-            layout.Controls.Add(fixtureActions);
+            layout.Controls.Add(_combine);
 
             layout.Controls.Add(Section("Cara de montaje"));
             var mountingChoices = new TableLayoutPanel
@@ -285,112 +266,91 @@ namespace EspritSolidFixture
             }
 
             // Los elementos existentes se pueden seleccionar para eliminarlos.
-            // La captura se activa haciendo clic en una zona vacía del recuadro.
-            if (e.Button == MouseButtons.Left && itemIndex < 0 && !_capturing)
-            {
-                _capturing = true;
-                _fixtureBox.BackColor = SelectionOrange;
-                _hint.Text = "Selecciona sólidos en la vista. Pulsa Esc para terminar.";
-                ActivatePartView();
-                BeginInvoke(new Action(CaptureSolids));
-            }
+            // Un clic en la zona vacía activa la selección nativa de ESPRIT.
+            if (e.Button == MouseButtons.Left && itemIndex < 0)
+                ActivateNativeSelection(SelectionRole.Fixtures);
         }
 
-        private void BeginSingleCapture(SelectionRole role)
-        {
-            if (_capturing) return;
-            _capturing = true;
-            ListBox box = role == SelectionRole.Part ? _partBox : _stockBox;
-            box.BackColor = SelectionOrange;
-            _hint.Text = role == SelectionRole.Part
-                ? "Selecciona el sólido que define la pieza."
-                : "Selecciona el sólido que define el bruto.";
-            ActivatePartView();
-            BeginInvoke(new Action(() => CaptureSingleSolid(role)));
-        }
-
-        private void WindowSelectionOnClick(object sender, EventArgs e)
+        private void ActivateNativeSelection(SelectionRole role)
         {
             Esprit.Document document;
             try { document = (Esprit.Document)_app.Document; }
             catch { return; }
             if (document == null) return;
 
-            if (!_windowSelecting)
+            _activeSelectionRole = role;
+            _partBox.BackColor = role == SelectionRole.Part ? SelectionOrange : Color.White;
+            _stockBox.BackColor = role == SelectionRole.Stock ? SelectionOrange : Color.White;
+            _fixtureBox.BackColor = role == SelectionRole.Fixtures ? SelectionOrange : Color.White;
+
+            _synchronizingSelection = true;
+            try
             {
-                _capturing = false;
-                _windowSelecting = true;
                 document.Group.Clear();
-                document.Refresh();
-                _windowSelection.Text = "Añadir selección";
-                _windowSelection.BackColor = SelectionOrange;
-                _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(224, 128, 45);
-                _hint.Text = "Arrastra una ventana en la vista y pulsa Añadir selección.";
-                ActivatePartView();
-                return;
+                if (role == SelectionRole.Part && _part != null)
+                    document.Group.Add(_part.Solid);
+                else if (role == SelectionRole.Stock && _stock != null)
+                    document.Group.Add(_stock.Solid);
+                else if (role == SelectionRole.Fixtures)
+                    foreach (SolidChoice fixture in _fixtures) document.Group.Add(fixture.Solid);
             }
+            finally { _synchronizingSelection = false; }
 
-            var additions = new List<SolidChoice>();
-            for (int index = 1; index <= document.Group.Count; index++)
-            {
-                object selected = document.Group[index];
-                if (selected is Esprit.Solid solid)
-                    additions.Add(SolidChoice.FromSolid(solid));
-            }
-
-            foreach (SolidChoice choice in additions)
-            {
-                if (_fixtures.All(x => x.Key != choice.Key))
-                    _fixtures.Add(choice);
-            }
-
-            _windowSelecting = false;
-            _windowSelection.Text = "Selección por ventana";
-            _windowSelection.BackColor = Color.White;
-            _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
-            SynchronizeGraphicSelection(document);
-            RefreshState();
-            _hint.Text = additions.Count == 0
-                ? "La ventana no contenía sólidos completos."
-                : additions.Count + (additions.Count == 1
-                    ? " sólido detectado por ventana."
-                    : " sólidos detectados por ventana.");
+            _hint.Text = role == SelectionRole.Part
+                ? "Selecciona la pieza con un clic o una ventana en la vista."
+                : role == SelectionRole.Stock
+                    ? "Selecciona el bruto con un clic o una ventana en la vista."
+                    : "Selecciona utillajes con clics o una ventana en la vista.";
+            ActivatePartView();
+            document.Refresh();
         }
 
-        private void CaptureSingleSolid(SelectionRole role)
+        private void DocumentGroupOnChanged()
         {
-            ListBox box = role == SelectionRole.Part ? _partBox : _stockBox;
+            if (_synchronizingSelection || !_activeSelectionRole.HasValue ||
+                _selectionRefreshPending || IsDisposed) return;
+            _selectionRefreshPending = true;
+            try { BeginInvoke(new Action(ProcessNativeSelection)); }
+            catch { _selectionRefreshPending = false; }
+        }
+
+        private void ProcessNativeSelection()
+        {
+            _selectionRefreshPending = false;
+            if (!_activeSelectionRole.HasValue || IsDisposed) return;
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
                 if (document == null) return;
-                string prompt = role == SelectionRole.Part
-                    ? "Selecciona el sólido de pieza"
-                    : "Selecciona el sólido de bruto";
-                Esprit.IGraphicObject selected = document.GetAnyElement(
-                    prompt, EspritConstants.espGraphicObjectType.espSolidModel);
-                if (selected is Esprit.Solid solid)
+
+                var solids = new List<SolidChoice>();
+                for (int index = 1; index <= document.Group.Count; index++)
                 {
-                    SolidChoice choice = SolidChoice.FromSolid(solid);
-                    if (role == SelectionRole.Part) _part = choice;
-                    else _stock = choice;
-                    SynchronizeGraphicSelection(document);
-                    RefreshState();
+                    object selected = document.Group[index];
+                    if (selected is Esprit.Solid solid)
+                        solids.Add(SolidChoice.FromSolid(solid));
                 }
-            }
-            catch
-            {
-                // Escape cancela normalmente el selector nativo.
-            }
-            finally
-            {
-                _capturing = false;
-                if (!IsDisposed)
+
+                SelectionRole role = _activeSelectionRole.Value;
+                if (role == SelectionRole.Part)
+                    _part = solids.FirstOrDefault();
+                else if (role == SelectionRole.Stock)
+                    _stock = solids.FirstOrDefault();
+                else
                 {
-                    box.BackColor = Color.White;
-                    _hint.Text = "Haz clic en cualquier recuadro para cambiar su selección.";
+                    _fixtures.Clear();
+                    foreach (SolidChoice solid in solids)
+                        if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
                 }
+
+                RefreshState();
+                _hint.Text = solids.Count == 0
+                    ? "No hay sólidos seleccionados en la vista."
+                    : solids.Count + (solids.Count == 1
+                        ? " sólido seleccionado."
+                        : " sólidos seleccionados.");
             }
+            catch { }
         }
 
         private void PhaseOnValueChanged(object sender, EventArgs e)
@@ -415,51 +375,6 @@ namespace EspritSolidFixture
                 }
             }
             RefreshState();
-        }
-
-        private void CaptureSolids()
-        {
-            try
-            {
-                Esprit.Document document = (Esprit.Document)_app.Document;
-                if (document == null) return;
-
-                while (_capturing && !IsDisposed)
-                {
-                    Esprit.IGraphicObject selected = document.GetAnyElement(
-                        "Selecciona un sólido de utillaje (Esc para terminar)",
-                        EspritConstants.espGraphicObjectType.espSolidModel);
-
-                    if (!(selected is Esprit.Solid solid)) break;
-                    SolidChoice choice = SolidChoice.FromSolid(solid);
-                    int existingIndex = _fixtures.FindIndex(x => x.Key == choice.Key);
-                    if (existingIndex >= 0)
-                    {
-                        _fixtures.RemoveAt(existingIndex);
-                    }
-                    else
-                    {
-                        _fixtures.Add(choice);
-                    }
-                    SynchronizeGraphicSelection(document);
-                    RefreshState();
-                }
-            }
-            catch
-            {
-                // Escape cancela normalmente el selector nativo.
-            }
-            finally
-            {
-                _capturing = false;
-                if (!IsDisposed)
-                {
-                    _fixtureBox.BackColor = Color.White;
-                    _hint.Text = _fixtures.Count == 0
-                        ? "Haz clic en el recuadro para seleccionar sólidos."
-                        : "Haz clic en el espacio vacío para añadir más sólidos.";
-                }
-            }
         }
 
         private void FixtureBoxOnKeyDown(object sender, KeyEventArgs e)
@@ -537,11 +452,30 @@ namespace EspritSolidFixture
         private void SynchronizeGraphicSelection(Esprit.Document document)
         {
             if (document == null) return;
-            document.Group.Clear();
-            if (_part != null) document.Group.Add(_part.Solid);
-            if (_stock != null) document.Group.Add(_stock.Solid);
-            foreach (SolidChoice fixture in _fixtures)
-                document.Group.Add(fixture.Solid);
+            _synchronizingSelection = true;
+            try
+            {
+                document.Group.Clear();
+                if (_activeSelectionRole == SelectionRole.Part)
+                {
+                    if (_part != null) document.Group.Add(_part.Solid);
+                }
+                else if (_activeSelectionRole == SelectionRole.Stock)
+                {
+                    if (_stock != null) document.Group.Add(_stock.Solid);
+                }
+                else if (_activeSelectionRole == SelectionRole.Fixtures)
+                {
+                    foreach (SolidChoice fixture in _fixtures) document.Group.Add(fixture.Solid);
+                }
+                else
+                {
+                    if (_part != null) document.Group.Add(_part.Solid);
+                    if (_stock != null) document.Group.Add(_stock.Solid);
+                    foreach (SolidChoice fixture in _fixtures) document.Group.Add(fixture.Solid);
+                }
+            }
+            finally { _synchronizingSelection = false; }
             document.Refresh();
         }
 
@@ -560,6 +494,7 @@ namespace EspritSolidFixture
 
         private void AcceptPreparation(object sender, EventArgs e)
         {
+            _activeSelectionRole = null;
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool definePartAndStock = _part != null && _stock != null;
@@ -855,13 +790,23 @@ namespace EspritSolidFixture
         private enum SelectionRole
         {
             Part,
-            Stock
+            Stock,
+            Fixtures
         }
 
         private enum MountDestination
         {
             CurrentConfiguration = 0,
             NewConfiguration = 1
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            if (_documentGroup != null)
+            {
+                try { _documentGroup.OnChanged -= DocumentGroupOnChanged; } catch { }
+            }
+            base.OnFormClosed(e);
         }
 
         [DllImport("user32.dll")]
