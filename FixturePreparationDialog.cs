@@ -317,9 +317,12 @@ namespace EspritSolidFixture
 
         private void PhaseOnValueChanged(object sender, EventArgs e)
         {
-            if (_phase.Value != 2) return;
-            _mountTop.Checked = true;
-            _destination.SelectedIndex = (int)MountDestination.NewConfiguration;
+            if (_phase.Value == 2)
+            {
+                _mountTop.Checked = true;
+                _destination.SelectedIndex = (int)MountDestination.NewConfiguration;
+            }
+            RefreshState();
         }
 
         private void CaptureSolids()
@@ -430,8 +433,13 @@ namespace EspritSolidFixture
             string folder = DetermineOutputFolder();
             _folderText.Text = folder ?? "No se pudo determinar la ruta del CAD";
             _toolTip.SetToolTip(_folderText, _folderText.Text);
-            _accept.Enabled = _part != null && _stock != null &&
+            bool reusePreviousPart = _phase.Value >= 2 && _part == null && _stock == null;
+            bool definePartAndStock = _part != null && _stock != null;
+            _accept.Enabled = (reusePreviousPart || definePartAndStock) &&
                               _fixtures.Count > 0 && folder != null;
+
+            if (_phase.Value >= 2 && _part == null && _stock == null)
+                _hint.Text = "Se reutilizarán la pieza y el bruto de la fase anterior.";
         }
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
@@ -461,7 +469,10 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             string folder = DetermineOutputFolder();
-            if (_part == null || _stock == null || _fixtures.Count == 0 || folder == null) return;
+            bool reusePreviousPart = _phase.Value >= 2 && _part == null && _stock == null;
+            bool definePartAndStock = _part != null && _stock != null;
+            if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
+                return;
             IReadOnlyList<string> paths;
             try
             {
@@ -486,7 +497,9 @@ namespace EspritSolidFixture
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                workpieceKey = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+                workpieceKey = reusePreviousPart
+                    ? assembler.GetExistingWorkpieceKey()
+                    : assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
             }
             catch (Exception ex)
             {

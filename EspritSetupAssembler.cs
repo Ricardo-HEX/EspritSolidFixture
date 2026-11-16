@@ -72,6 +72,19 @@ namespace EspritSolidFixture
             }
         }
 
+        public string GetExistingWorkpieceKey()
+        {
+            if (_document.Workpieces.Count == 0)
+                throw new InvalidOperationException(
+                    "El documento no contiene una pieza de trabajo de una fase anterior.");
+
+            Esprit.Workpiece workpiece = _document.Workpieces[1];
+            if (workpiece.Parts.Count == 0)
+                throw new InvalidOperationException(
+                    "La pieza de trabajo existente no tiene una pieza definida.");
+            return workpiece.Key;
+        }
+
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
             bool createNewConfiguration)
         {
@@ -87,23 +100,27 @@ namespace EspritSolidFixture
                 throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");
 
             string step = createNewConfiguration
-                ? "crear la nueva configuración de máquina"
+                ? "crear la secuencia de la nueva configuración"
                 : "iniciar la edición de máquina";
-            Esprit.MachineSetup setup;
-            if (createNewConfiguration)
-            {
-                Esprit.MachineSetupSequence sequence = _document.MachineSetupSequences.Add();
-                setup = sequence.MachineSetup;
-                setup.CopyPreviousSetup();
-            }
-            else
-            {
-                setup = _document.InitialMachineSetup;
-            }
-
-            setup.BeginEdit();
+            Esprit.MachineSetup setup = null;
             try
             {
+                if (createNewConfiguration)
+                {
+                    Esprit.MachineSetupSequence sequence = _document.MachineSetupSequences.Add();
+                    step = "obtener la nueva configuración de máquina";
+                    setup = sequence.MachineSetup;
+                    step = "iniciar la edición de la nueva configuración";
+                    setup.BeginEdit();
+                    step = "copiar la configuración anterior";
+                    setup.CopyPreviousSetup();
+                }
+                else
+                {
+                    setup = _document.InitialMachineSetup;
+                    setup.BeginEdit();
+                }
+
                 if (createNewConfiguration)
                 {
                     step = "vaciar el montaje copiado en la nueva configuración";
@@ -136,7 +153,10 @@ namespace EspritSolidFixture
             }
             catch (Exception ex)
             {
-                try { setup.CancelEdit(); } catch { }
+                if (setup != null)
+                {
+                    try { setup.CancelEdit(); } catch { }
+                }
                 throw new InvalidOperationException("Error al " + step + ": " + ex.Message, ex);
             }
         }
