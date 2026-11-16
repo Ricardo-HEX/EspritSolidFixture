@@ -173,12 +173,14 @@ namespace EspritSolidFixture
                 step = "colocar el cero en la base del primer accesorio";
                 EspritGeometryBase.IComPoint rootPoint =
                     rootFixture.CumulativeTransformation.P;
-                EspritGeometryBase.IComPoint currentZero =
-                    workOffset.CumulativeTransformation.P;
                 double targetZ = rootPoint.Z - (rotateAssembly ? rotatedMountingOffset : 0.0);
-                workOffset.PartShiftX += rootPoint.X - currentZero.X;
-                workOffset.PartShiftY += rootPoint.Y - currentZero.Y;
-                workOffset.PartShiftZ += targetZ - currentZero.Z;
+                // La columna izquierda de ESPRIT es MachineShift (absoluto) y la
+                // derecha es PartShift (incremental). El incremental debe ser la
+                // diferencia directa entre el punto absoluto deseado y el absoluto
+                // de referencia calculado por ESPRIT.
+                workOffset.PartShiftX = rootPoint.X - workOffset.MachineShiftX;
+                workOffset.PartShiftY = rootPoint.Y - workOffset.MachineShiftY;
+                workOffset.PartShiftZ = targetZ - workOffset.MachineShiftZ;
 
                 step = "finalizar la edición de máquina";
                 setup.EndEdit();

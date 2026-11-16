@@ -422,9 +422,13 @@ namespace EspritSolidFixture
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
-                // La configuración inicial es la 1. Cada secuencia representa una
-                // configuración adicional ya existente.
-                return Math.Max(2, document.MachineSetupSequences.Count + 2);
+                // La configuración inicial es la 1. Según cómo se creó el montaje,
+                // ESPRIT puede registrar las adicionales en MachineSetupChanges,
+                // MachineSetupSequences o en ambas colecciones.
+                int additionalConfigurations = Math.Max(
+                    document.MachineSetupChanges.Count,
+                    document.MachineSetupSequences.Count);
+                return Math.Max(2, additionalConfigurations + 2);
             }
             catch { return 2; }
         }
