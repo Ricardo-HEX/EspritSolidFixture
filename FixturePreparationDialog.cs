@@ -31,9 +31,11 @@ namespace EspritSolidFixture
         private readonly ComboBox _destination;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private readonly Esprit.Group _documentGroup;
+        private readonly Timer _selectionRemovalTimer;
+        private readonly HashSet<string> _pendingRemovalKeys = new HashSet<string>();
         private SelectionRole? _activeSelectionRole;
+        private SelectionRole? _pendingRemovalRole;
         private bool _synchronizingSelection;
-        private bool _selectionRefreshPending;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -54,9 +56,16 @@ namespace EspritSolidFixture
             try
             {
                 _documentGroup = ((Esprit.Document)_app.Document).Group as Esprit.Group;
-                if (_documentGroup != null) _documentGroup.OnChanged += DocumentGroupOnChanged;
+                if (_documentGroup != null)
+                {
+                    _documentGroup.OnAdd += DocumentGroupOnAdd;
+                    _documentGroup.OnRemove += DocumentGroupOnRemove;
+                }
             }
             catch { }
+
+            _selectionRemovalTimer = new Timer { Interval = 180 };
+            _selectionRemovalTimer.Tick += SelectionRemovalTimerOnTick;
 
             var layout = new TableLayoutPanel
             {
@@ -279,6 +288,9 @@ namespace EspritSolidFixture
             if (document == null) return;
 
             _activeSelectionRole = role;
+            _selectionRemovalTimer.Stop();
+            _pendingRemovalKeys.Clear();
+            _pendingRemovalRole = null;
             _partBox.BackColor = role == SelectionRole.Part ? SelectionOrange : Color.White;
             _stockBox.BackColor = role == SelectionRole.Stock ? SelectionOrange : Color.White;
             _fixtureBox.BackColor = role == SelectionRole.Fixtures ? SelectionOrange : Color.White;
@@ -305,52 +317,79 @@ namespace EspritSolidFixture
             document.Refresh();
         }
 
-        private void DocumentGroupOnChanged()
+        private void DocumentGroupOnAdd(ref Array objects, object digitizedInfo)
         {
-            if (_synchronizingSelection || !_activeSelectionRole.HasValue ||
-                _selectionRefreshPending || IsDisposed) return;
-            _selectionRefreshPending = true;
-            try { BeginInvoke(new Action(ProcessNativeSelection)); }
-            catch { _selectionRefreshPending = false; }
+            if (_synchronizingSelection || !_activeSelectionRole.HasValue || IsDisposed) return;
+
+            // La selección por ventana suele quitar primero el grupo anterior y
+            // añadir inmediatamente el nuevo. Si hay altas, esas bajas no deben
+            // eliminar elementos ya guardados en la extensión.
+            _selectionRemovalTimer.Stop();
+            _pendingRemovalKeys.Clear();
+            _pendingRemovalRole = null;
+
+            var additions = new List<SolidChoice>();
+            foreach (object selected in objects)
+            {
+                if (selected is Esprit.Solid solid)
+                    additions.Add(SolidChoice.FromSolid(solid));
+            }
+
+            SelectionRole role = _activeSelectionRole.Value;
+            if (role == SelectionRole.Part && additions.Count > 0)
+                _part = additions[0];
+            else if (role == SelectionRole.Stock && additions.Count > 0)
+                _stock = additions[0];
+            else if (role == SelectionRole.Fixtures)
+                foreach (SolidChoice solid in additions)
+                    if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
+
+            RefreshState();
+            _hint.Text = additions.Count == 0
+                ? "La selección no contenía sólidos completos."
+                : additions.Count + (additions.Count == 1
+                    ? " sólido añadido."
+                    : " sólidos añadidos.");
         }
 
-        private void ProcessNativeSelection()
+        private void DocumentGroupOnRemove(ref Array objects)
         {
-            _selectionRefreshPending = false;
-            if (!_activeSelectionRole.HasValue || IsDisposed) return;
-            try
+            if (_synchronizingSelection || !_activeSelectionRole.HasValue || IsDisposed) return;
+
+            _pendingRemovalKeys.Clear();
+            foreach (object selected in objects)
             {
-                Esprit.Document document = (Esprit.Document)_app.Document;
-                if (document == null) return;
-
-                var solids = new List<SolidChoice>();
-                for (int index = 1; index <= document.Group.Count; index++)
-                {
-                    object selected = document.Group[index];
-                    if (selected is Esprit.Solid solid)
-                        solids.Add(SolidChoice.FromSolid(solid));
-                }
-
-                SelectionRole role = _activeSelectionRole.Value;
-                if (role == SelectionRole.Part)
-                    _part = solids.FirstOrDefault();
-                else if (role == SelectionRole.Stock)
-                    _stock = solids.FirstOrDefault();
-                else
-                {
-                    _fixtures.Clear();
-                    foreach (SolidChoice solid in solids)
-                        if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
-                }
-
-                RefreshState();
-                _hint.Text = solids.Count == 0
-                    ? "No hay sólidos seleccionados en la vista."
-                    : solids.Count + (solids.Count == 1
-                        ? " sólido seleccionado."
-                        : " sólidos seleccionados.");
+                if (selected is Esprit.Solid solid)
+                    _pendingRemovalKeys.Add(Convert.ToString(solid.Key));
             }
-            catch { }
+            if (_pendingRemovalKeys.Count == 0) return;
+
+            _pendingRemovalRole = _activeSelectionRole;
+            _selectionRemovalTimer.Stop();
+            _selectionRemovalTimer.Start();
+        }
+
+        private void SelectionRemovalTimerOnTick(object sender, EventArgs e)
+        {
+            _selectionRemovalTimer.Stop();
+            if (!_pendingRemovalRole.HasValue || _pendingRemovalKeys.Count == 0) return;
+
+            if (_pendingRemovalRole == SelectionRole.Part &&
+                _part != null && _pendingRemovalKeys.Contains(_part.Key))
+                _part = null;
+            else if (_pendingRemovalRole == SelectionRole.Stock &&
+                     _stock != null && _pendingRemovalKeys.Contains(_stock.Key))
+                _stock = null;
+            else if (_pendingRemovalRole == SelectionRole.Fixtures)
+                _fixtures.RemoveAll(x => _pendingRemovalKeys.Contains(x.Key));
+
+            int removed = _pendingRemovalKeys.Count;
+            _pendingRemovalKeys.Clear();
+            _pendingRemovalRole = null;
+            RefreshState();
+            _hint.Text = removed == 1
+                ? "1 sólido retirado de la selección."
+                : removed + " sólidos retirados de la selección.";
         }
 
         private void PhaseOnValueChanged(object sender, EventArgs e)
@@ -827,8 +866,12 @@ namespace EspritSolidFixture
         {
             if (_documentGroup != null)
             {
-                try { _documentGroup.OnChanged -= DocumentGroupOnChanged; } catch { }
+                try { _documentGroup.OnAdd -= DocumentGroupOnAdd; } catch { }
+                try { _documentGroup.OnRemove -= DocumentGroupOnRemove; } catch { }
             }
+            _selectionRemovalTimer.Stop();
+            _selectionRemovalTimer.Tick -= SelectionRemovalTimerOnTick;
+            _selectionRemovalTimer.Dispose();
             base.OnFormClosed(e);
         }
 
