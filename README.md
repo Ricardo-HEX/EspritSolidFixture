@@ -29,7 +29,9 @@ El selector **Cara de montaje** permite elegir la cara inferior (Z normal) o la 
 superior. Los GDML conservan siempre la geometría original. En montaje superior la
 extensión gira el accesorio raíz 180 grados sobre Y y después 180 grados sobre Z;
 todo el árbol de utillajes y la pieza heredan la misma transformación rígida. No se
-crean reflejos ni copias temporales. En modo combinado se toma la Z inferior del
+crean reflejos ni copias temporales. Después del giro se traslada el accesorio raíz
+en Z positiva según la altura total del árbol, evitando que el montaje quede debajo
+de la mesa. En modo combinado se toma la Z inferior del
 conjunto para la geometría y la Z superior para `FA_1`; `WA_1` continúa en el plano
 original mediante el mismo desplazamiento Z aplicado a la geometría.
 

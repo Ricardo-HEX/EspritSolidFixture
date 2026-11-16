@@ -501,13 +501,23 @@ namespace EspritSolidFixture
             if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
                 return;
             IReadOnlyList<string> paths;
+            double rotatedMountingOffset = 0;
             try
             {
                 var document = (Esprit.Document)_app.Document;
                 var exporter = new GdmlFixtureExporter(document);
                 IEnumerable<SolidChoice> fixtureOrder =
                     _fixtures.OrderBy(x => GetMinimumZ(x.Solid));
-                var orderedFixtures = fixtureOrder.Select(x => x.Solid).ToList();
+                var orderedChoices = fixtureOrder.ToList();
+                var orderedFixtures = orderedChoices.Select(x => x.Solid).ToList();
+                if (_mountTop.Checked)
+                {
+                    rotatedMountingOffset = _combine.Checked && orderedChoices.Count > 1
+                        ? orderedChoices.Max(x => GetMaximumZ(x.Solid)) -
+                          orderedChoices.Min(x => GetMinimumZ(x.Solid))
+                        : orderedChoices.Sum(x =>
+                            GetMaximumZ(x.Solid) - GetMinimumZ(x.Solid));
+                }
                 paths = exporter.Export(
                     orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
@@ -540,7 +550,8 @@ namespace EspritSolidFixture
                 bool newConfiguration =
                     (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
                 assembler.MountFixturesAndWorkpiece(
-                    paths, workpieceKey, newConfiguration, _mountTop.Checked);
+                    paths, workpieceKey, newConfiguration, _mountTop.Checked,
+                    rotatedMountingOffset);
             }
             catch (Exception ex)
             {
@@ -610,6 +621,18 @@ namespace EspritSolidFixture
             if (double.IsPositiveInfinity(minimum))
                 throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
             return minimum;
+        }
+
+        private static double GetMaximumZ(Esprit.Solid solid)
+        {
+            EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
+            double maximum = double.NegativeInfinity;
+            foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
+                maximum = Math.Max(maximum, vertex.Geometry.Z);
+
+            if (double.IsNegativeInfinity(maximum))
+                throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
+            return maximum;
         }
 
         private static Icon LoadEspritIcon()
