@@ -426,7 +426,7 @@ namespace EspritSolidFixture
                 // ESPRIT puede registrar las adicionales en MachineSetupChanges,
                 // MachineSetupSequences o en ambas colecciones.
                 int additionalConfigurations = Math.Max(
-                    document.MachineSetupChanges.Count,
+                    Math.Max(0, document.MachineSetupChanges.Count - 1),
                     document.MachineSetupSequences.Count);
                 return Math.Max(2, additionalConfigurations + 2);
             }
@@ -557,7 +557,7 @@ namespace EspritSolidFixture
             if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
                 return;
             IReadOnlyList<string> paths;
-            double rotatedMountingOffset = 0;
+            double mountingStackHeight = 0;
             try
             {
                 var document = (Esprit.Document)_app.Document;
@@ -566,14 +566,11 @@ namespace EspritSolidFixture
                     _fixtures.OrderBy(x => GetMinimumZ(x.Solid));
                 var orderedChoices = fixtureOrder.ToList();
                 var orderedFixtures = orderedChoices.Select(x => x.Solid).ToList();
-                if (_mountTop.Checked)
-                {
-                    rotatedMountingOffset = _combine.Checked && orderedChoices.Count > 1
-                        ? orderedChoices.Max(x => GetMaximumZ(x.Solid)) -
-                          orderedChoices.Min(x => GetMinimumZ(x.Solid))
-                        : orderedChoices.Sum(x =>
-                            GetMaximumZ(x.Solid) - GetMinimumZ(x.Solid));
-                }
+                mountingStackHeight = _combine.Checked && orderedChoices.Count > 1
+                    ? orderedChoices.Max(x => GetMaximumZ(x.Solid)) -
+                      orderedChoices.Min(x => GetMinimumZ(x.Solid))
+                    : orderedChoices.Sum(x =>
+                        GetMaximumZ(x.Solid) - GetMinimumZ(x.Solid));
                 paths = exporter.Export(
                     orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
@@ -607,7 +604,7 @@ namespace EspritSolidFixture
                     (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
                 assembler.MountFixturesAndWorkpiece(
                     paths, workpieceKey, newConfiguration, _mountTop.Checked,
-                    rotatedMountingOffset);
+                    mountingStackHeight);
             }
             catch (Exception ex)
             {

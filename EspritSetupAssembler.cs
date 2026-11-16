@@ -86,7 +86,7 @@ namespace EspritSolidFixture
         }
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
-            bool createNewConfiguration, bool rotateAssembly, double rotatedMountingOffset)
+            bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
@@ -149,7 +149,7 @@ namespace EspritSolidFixture
                     rootFixture.YRotation = 180.0;
                     rootFixture.ZRotation = 180.0;
                     step = "trasladar el montaje girado sobre la mesa";
-                    rootFixture.ZTranslation = rootFixture.ZTranslation + rotatedMountingOffset;
+                    rootFixture.ZTranslation = rootFixture.ZTranslation + mountingStackHeight;
                 }
 
                 step = "crear la instancia de pieza sobre el accesorio";
@@ -171,16 +171,14 @@ namespace EspritSolidFixture
                 workOffset.Name = "G" + workOffsetNumber;
 
                 step = "colocar el cero en la base del primer accesorio";
-                EspritGeometryBase.IComPoint rootPoint =
-                    rootFixture.CumulativeTransformation.P;
-                double targetZ = rootPoint.Z - (rotateAssembly ? rotatedMountingOffset : 0.0);
-                // La columna izquierda de ESPRIT es MachineShift (absoluto) y la
-                // derecha es PartShift (incremental). El incremental debe ser la
-                // diferencia directa entre el punto absoluto deseado y el absoluto
-                // de referencia calculado por ESPRIT.
-                workOffset.PartShiftX = rootPoint.X - workOffset.MachineShiftX;
-                workOffset.PartShiftY = rootPoint.Y - workOffset.MachineShiftY;
-                workOffset.PartShiftZ = targetZ - workOffset.MachineShiftZ;
+                EspritGeometryBase.IComVector stackDirection =
+                    rootFixture.CumulativeTransformation.W;
+                // El cero automático se crea en el punto de montaje de la pieza,
+                // arriba del árbol. La base del primer accesorio está a una altura
+                // completa en sentido contrario al eje Z local transformado.
+                workOffset.PartShiftX = -stackDirection.X * mountingStackHeight;
+                workOffset.PartShiftY = -stackDirection.Y * mountingStackHeight;
+                workOffset.PartShiftZ = -stackDirection.Z * mountingStackHeight;
 
                 step = "finalizar la edición de máquina";
                 setup.EndEdit();
