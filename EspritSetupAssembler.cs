@@ -81,33 +81,40 @@ namespace EspritSolidFixture
 
             // EndEdit invalida algunos wrappers COM cuando la pieza se crea desde cero.
             // Se obtiene una referencia nueva por clave justo antes de editar la máquina.
-            Esprit.Workpiece workpiece = _document.Workpieces[workpieceKey];
+            Esprit.Workpiece workpiece = _document.Workpieces[1];
             if (workpiece == null)
                 throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");
 
             Esprit.MachineSetup setup = _document.InitialMachineSetup;
+            string step = "iniciar la edición de máquina";
             setup.BeginEdit();
             try
             {
                 var fixtures = new List<Esprit.Fixture>();
                 foreach (string path in paths)
                 {
+                    step = "cargar el accesorio " + Path.GetFileName(path);
                     Esprit.Fixture fixture = setup.MachineItems.AddFixture(path);
                     fixture.Name = Path.GetFileNameWithoutExtension(path);
                     fixtures.Add(fixture);
                 }
 
+                step = "crear la instancia de pieza sobre el accesorio";
                 Esprit.WorkpieceInstance instance = fixtures[0].MachineItems.AddWorkpieceInstance();
-                instance.PartWorkpiece = workpiece;
+                // AddWorkpieceInstance enlaza automáticamente la primera pieza de
+                // trabajo. Reasignar PartWorkpiece después de crearla desde cero
+                // provoca "objeto gráfico no válido" en ESPRIT.
+                step = "asignar el nombre a la instancia de pieza";
                 instance.Name = workpiece.Name;
 
+                step = "finalizar la edición de máquina";
                 setup.EndEdit();
                 _document.Refresh();
             }
-            catch
+            catch (Exception ex)
             {
                 try { setup.CancelEdit(); } catch { }
-                throw;
+                throw new InvalidOperationException("Error al " + step + ": " + ex.Message, ex);
             }
         }
     }
