@@ -12,9 +12,11 @@ La ventana se posiciona automáticamente en la esquina superior izquierda de ESP
 
 El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Giro Y 180° + Z 180°**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol.
 
-Al crear una configuración adicional, el número de fase tiene en cuenta que `MachineSetupChanges` incluye la configuración inicial y que `MachineSetupSequences` contiene las adicionales. Por ejemplo, con una única configuración la siguiente es Fase 2; si ya existen Configuración 1 y Configuración 2, la siguiente es Fase 3. La extensión revisa también los ceros de trabajo de todas las configuraciones y asigna el primero libre desde G54. Finalmente mueve el cero desde el punto de la pieza hasta la base del primer accesorio aplicando el vector contrario al eje Z transformado del árbol multiplicado por su altura completa. Esto funciona tanto en montaje normal como girado.
+Al crear una configuración adicional, el número de fase se obtiene del mayor recuento entre `MachineSetupChanges` y `MachineSetupSequences`, más uno. Por ejemplo, con una única configuración la siguiente es Fase 2; si ya existen Configuración 1 y Configuración 2, la siguiente es Fase 3. La extensión revisa también los ceros de trabajo de todas las configuraciones y asigna el primero libre desde G54. El desplazamiento incremental conserva X=0 e Y=0 y utiliza como Z la coordenada absoluta de la base de los accesorios: Z mínima en montaje normal y Z máxima original cuando el montaje está girado.
 
 La salida utiliza la carpeta de accesorios configurada por cada cliente (`espFileTypeFixtures`) y crea dentro `Utillajes_<NombreCAD>`.
+
+Si ya existe un GDML con el mismo nombre, se sobrescribe. También se eliminan las versiones numeradas anteriores generadas por la extensión (`_1`, `_2`, etc.) para evitar accesorios duplicados.
 
 Al aceptar se genera un GDML independiente por cada sólido, con el nombre
 `Utillaje_<NombreCAD>_Fase_<X>_Solido_<N>.gdml`. La geometría no se desplaza en X ni

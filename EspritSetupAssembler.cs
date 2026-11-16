@@ -86,7 +86,8 @@ namespace EspritSolidFixture
         }
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
-            bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight)
+            bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
+            double workOffsetBaseZ)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
@@ -171,14 +172,12 @@ namespace EspritSolidFixture
                 workOffset.Name = "G" + workOffsetNumber;
 
                 step = "colocar el cero en la base del primer accesorio";
-                EspritGeometryBase.IComVector stackDirection =
-                    rootFixture.CumulativeTransformation.W;
-                // El cero automático se crea en el punto de montaje de la pieza,
-                // arriba del árbol. La base del primer accesorio está a una altura
-                // completa en sentido contrario al eje Z local transformado.
-                workOffset.PartShiftX = -stackDirection.X * mountingStackHeight;
-                workOffset.PartShiftY = -stackDirection.Y * mountingStackHeight;
-                workOffset.PartShiftZ = -stackDirection.Z * mountingStackHeight;
+                // El usuario define el cero desde el plano XYZ absoluto del CAD.
+                // No se desplaza X/Y. En montaje normal se usa la Z mínima de los
+                // accesorios; al girar el conjunto se usa su Z máxima original.
+                workOffset.PartShiftX = 0.0;
+                workOffset.PartShiftY = 0.0;
+                workOffset.PartShiftZ = workOffsetBaseZ;
 
                 step = "finalizar la edición de máquina";
                 setup.EndEdit();

@@ -425,10 +425,10 @@ namespace EspritSolidFixture
                 // La configuración inicial es la 1. Según cómo se creó el montaje,
                 // ESPRIT puede registrar las adicionales en MachineSetupChanges,
                 // MachineSetupSequences o en ambas colecciones.
-                int additionalConfigurations = Math.Max(
-                    Math.Max(0, document.MachineSetupChanges.Count - 1),
+                int existingConfigurations = Math.Max(
+                    document.MachineSetupChanges.Count,
                     document.MachineSetupSequences.Count);
-                return Math.Max(2, additionalConfigurations + 2);
+                return Math.Max(2, existingConfigurations + 1);
             }
             catch { return 2; }
         }
@@ -558,6 +558,7 @@ namespace EspritSolidFixture
                 return;
             IReadOnlyList<string> paths;
             double mountingStackHeight = 0;
+            double workOffsetBaseZ = 0;
             try
             {
                 var document = (Esprit.Document)_app.Document;
@@ -571,6 +572,9 @@ namespace EspritSolidFixture
                       orderedChoices.Min(x => GetMinimumZ(x.Solid))
                     : orderedChoices.Sum(x =>
                         GetMaximumZ(x.Solid) - GetMinimumZ(x.Solid));
+                workOffsetBaseZ = _mountTop.Checked
+                    ? orderedChoices.Max(x => GetMaximumZ(x.Solid))
+                    : orderedChoices.Min(x => GetMinimumZ(x.Solid));
                 paths = exporter.Export(
                     orderedFixtures, folder, Decimal.ToInt32(_phase.Value),
                     _combine.Checked, _mountTop.Checked);
@@ -604,7 +608,7 @@ namespace EspritSolidFixture
                     (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration;
                 assembler.MountFixturesAndWorkpiece(
                     paths, workpieceKey, newConfiguration, _mountTop.Checked,
-                    mountingStackHeight);
+                    mountingStackHeight, workOffsetBaseZ);
             }
             catch (Exception ex)
             {

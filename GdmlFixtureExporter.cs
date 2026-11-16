@@ -33,7 +33,7 @@ namespace EspritSolidFixture
                     string fileName = string.Format(CultureInfo.InvariantCulture,
                         "Utillaje_{0}_Fase_{1}_Combinado{2}.gdml", cadName, phase,
                         mountFromTop ? "_Superior" : string.Empty);
-                    string path = MakeUniquePath(Path.Combine(folder, fileName));
+                    string path = PrepareOutputPath(Path.Combine(folder, fileName));
 
                     _document.Group.Clear();
                     foreach (Esprit.Solid solid in sourceSolids) _document.Group.Add(solid);
@@ -54,7 +54,7 @@ namespace EspritSolidFixture
                             "Utillaje_{0}_Fase_{1}_Solido_{2}{3}.gdml",
                             cadName, phase, sourceSolid.Number,
                             mountFromTop ? "_Superior" : string.Empty);
-                        string path = MakeUniquePath(Path.Combine(folder, fileName));
+                        string path = PrepareOutputPath(Path.Combine(folder, fileName));
 
                         _document.Group.Clear();
                         _document.Group.Add(solid);
@@ -178,17 +178,26 @@ namespace EspritSolidFixture
             return name.Trim().TrimEnd('.');
         }
 
-        private static string MakeUniquePath(string path)
+        private static string PrepareOutputPath(string path)
         {
-            if (!File.Exists(path)) return path;
             string directory = Path.GetDirectoryName(path);
             string name = Path.GetFileNameWithoutExtension(path);
             string extension = Path.GetExtension(path);
-            for (int index = 2; ; index++)
+
+            if (File.Exists(path)) File.Delete(path);
+            if (Directory.Exists(directory))
             {
-                string candidate = Path.Combine(directory, name + "_" + index + extension);
-                if (!File.Exists(candidate)) return candidate;
+                foreach (string candidate in Directory.GetFiles(
+                    directory, name + "_*" + extension, SearchOption.TopDirectoryOnly))
+                {
+                    string candidateName = Path.GetFileNameWithoutExtension(candidate);
+                    string suffix = candidateName.Length > name.Length + 1
+                        ? candidateName.Substring(name.Length + 1)
+                        : string.Empty;
+                    if (int.TryParse(suffix, out _)) File.Delete(candidate);
+                }
             }
+            return path;
         }
 
         private sealed class Bounds
