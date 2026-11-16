@@ -89,13 +89,13 @@ namespace EspritSolidFixture
             layout.Controls.Add(IntroductionPanel());
 
             layout.Controls.Add(Section("Pieza"));
-            _partBox = SingleSelectionBox("Haz clic para seleccionar el sólido de pieza");
+            _partBox = SingleSelectionBox();
             _partBox.AccessibleName = "Sólido de pieza";
             _partBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Part);
             layout.Controls.Add(SelectionRow(_partBox, SelectionRole.Part));
 
             layout.Controls.Add(Section("Bruto sólido"));
-            _stockBox = SingleSelectionBox("Haz clic para seleccionar el sólido de bruto");
+            _stockBox = SingleSelectionBox();
             _stockBox.AccessibleName = "Sólido de bruto";
             _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
             layout.Controls.Add(SelectionRow(_stockBox, SelectionRole.Stock));
@@ -327,30 +327,6 @@ namespace EspritSolidFixture
             button.FlatAppearance.BorderSize = visible ? 1 : 0;
             button.FlatAppearance.BorderColor = Color.FromArgb(218, 174, 49);
             button.BackColor = visible ? Color.FromArgb(255, 239, 167) : Color.White;
-            ApplyRoundedRegion(button, visible ? 5 : 0);
-        }
-
-        private static void ApplyRoundedRegion(Control control, int radius)
-        {
-            Region previous = control.Region;
-            if (radius <= 0)
-            {
-                control.Region = null;
-                previous?.Dispose();
-                return;
-            }
-
-            int diameter = radius * 2;
-            var path = new System.Drawing.Drawing2D.GraphicsPath();
-            path.AddArc(0, 0, diameter, diameter, 180, 90);
-            path.AddArc(control.Width - diameter, 0, diameter, diameter, 270, 90);
-            path.AddArc(control.Width - diameter, control.Height - diameter,
-                diameter, diameter, 0, 90);
-            path.AddArc(0, control.Height - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            control.Region = new Region(path);
-            path.Dispose();
-            previous?.Dispose();
         }
 
         private void ActivateWindowSelection(SelectionRole role)
@@ -712,8 +688,8 @@ namespace EspritSolidFixture
 
         private void RefreshState()
         {
-            RefreshSingleBox(_partBox, _part, "Haz clic para seleccionar el sólido de pieza");
-            RefreshSingleBox(_stockBox, _stock, "Haz clic para seleccionar el sólido de bruto");
+            RefreshSingleBox(_partBox, _part);
+            RefreshSingleBox(_stockBox, _stock);
 
             _fixtureBox.BeginUpdate();
             _fixtureBox.Items.Clear();
@@ -1003,7 +979,7 @@ namespace EspritSolidFixture
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
         };
 
-        private static ListBox SingleSelectionBox(string placeholder)
+        private static ListBox SingleSelectionBox()
         {
             var box = new ListBox
             {
@@ -1015,15 +991,14 @@ namespace EspritSolidFixture
                 Cursor = Cursors.Hand,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
-            box.Items.Add(placeholder);
             return box;
         }
 
-        private static void RefreshSingleBox(ListBox box, SolidChoice choice, string placeholder)
+        private static void RefreshSingleBox(ListBox box, SolidChoice choice)
         {
             box.BeginUpdate();
             box.Items.Clear();
-            box.Items.Add(choice == null ? placeholder : choice.DisplayName);
+            if (choice != null) box.Items.Add(choice.DisplayName);
             box.EndUpdate();
         }
 
