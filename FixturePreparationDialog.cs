@@ -93,13 +93,13 @@ namespace EspritSolidFixture
 
             layout.Controls.Add(Section("Pieza"));
             _partBox = SingleSelectionBox("Haz clic para seleccionar el sólido de pieza");
-            _partBox.MouseDown += (s, e) => ActivateNativeSelection(SelectionRole.Part);
-            layout.Controls.Add(_partBox);
+            _partBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Part);
+            layout.Controls.Add(SelectionRow(_partBox, SelectionRole.Part));
 
             layout.Controls.Add(Section("Bruto sólido"));
             _stockBox = SingleSelectionBox("Haz clic para seleccionar el sólido de bruto");
-            _stockBox.MouseDown += (s, e) => ActivateNativeSelection(SelectionRole.Stock);
-            layout.Controls.Add(_stockBox);
+            _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
+            layout.Controls.Add(SelectionRow(_stockBox, SelectionRole.Stock));
 
             layout.Controls.Add(Section("Utillajes"));
             _fixtureBox = new ListBox
@@ -116,7 +116,7 @@ namespace EspritSolidFixture
             var fixtureMenu = new ContextMenuStrip();
             fixtureMenu.Items.Add("Eliminar", CreateDeleteIcon(), RemoveSelectedFixtures);
             _fixtureBox.ContextMenuStrip = fixtureMenu;
-            layout.Controls.Add(_fixtureBox);
+            layout.Controls.Add(SelectionRow(_fixtureBox, SelectionRole.Fixtures));
 
             _countLabel = new Label
             {
@@ -281,10 +281,58 @@ namespace EspritSolidFixture
             // Los elementos existentes se pueden seleccionar para eliminarlos.
             // Un clic en la zona vacía activa la selección nativa de ESPRIT.
             if (e.Button == MouseButtons.Left && itemIndex < 0)
-                ActivateNativeSelection(SelectionRole.Fixtures);
+                ActivateWindowSelection(SelectionRole.Fixtures);
         }
 
-        private void ActivateNativeSelection(SelectionRole role)
+        private Control SelectionRow(Control selectionBox, SelectionRole role)
+        {
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = selectionBox.Height,
+                ColumnCount = 2,
+                Margin = selectionBox.Margin,
+                Padding = new Padding(0),
+                BackColor = Color.White
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
+
+            selectionBox.Dock = DockStyle.Fill;
+            selectionBox.Margin = new Padding(0, 0, 6, 0);
+            var arrow = new Button
+            {
+                Text = "↖",
+                Dock = DockStyle.Top,
+                Height = 30,
+                Margin = new Padding(0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(255, 247, 205),
+                ForeColor = Color.FromArgb(45, 57, 66),
+                Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TabStop = false
+            };
+            arrow.FlatAppearance.BorderColor = Color.FromArgb(210, 177, 70);
+            arrow.Click += (s, e) => ActivateSolidSelection(role);
+            _toolTip.SetToolTip(arrow, "Seleccionar un sólido completo");
+
+            row.Controls.Add(selectionBox, 0, 0);
+            row.Controls.Add(arrow, 1, 0);
+            return row;
+        }
+
+        private void ActivateWindowSelection(SelectionRole role)
+        {
+            ActivateSelection(role, false);
+        }
+
+        private void ActivateSolidSelection(SelectionRole role)
+        {
+            ActivateSelection(role, true);
+        }
+
+        private void ActivateSelection(SelectionRole role, bool solidOnly)
         {
             Esprit.Document document;
             try { document = (Esprit.Document)_app.Document; }
@@ -312,13 +360,14 @@ namespace EspritSolidFixture
             }
             finally { _synchronizingSelection = false; }
 
-            _hint.Text = role == SelectionRole.Part
-                ? "Selecciona la pieza con un clic o una ventana en la vista."
-                : role == SelectionRole.Stock
-                    ? "Selecciona el bruto con un clic o una ventana en la vista."
-                    : "Selecciona utillajes con clics o una ventana en la vista.";
+            _hint.Text = solidOnly
+                ? "Selección de sólidos activa. Haz clic sobre un sólido."
+                : "Selección por ventana activa. Arrastra una ventana en la vista.";
             ActivatePartView();
-            EnableSolidDigitizing(document);
+            if (solidOnly)
+                EnableSolidDigitizing(document);
+            else
+                DisableSolidDigitizing(document);
             document.Refresh();
         }
 
