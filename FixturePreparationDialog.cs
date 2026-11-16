@@ -24,7 +24,6 @@ namespace EspritSolidFixture
         private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
         private readonly NumericUpDown _phase;
-        private readonly TextBox _folderText;
         private readonly Button _accept;
         private readonly Label _hint;
         private readonly Label _countLabel;
@@ -36,8 +35,11 @@ namespace EspritSolidFixture
         private readonly Esprit.Group _documentGroup;
         private readonly Timer _selectionRemovalTimer;
         private readonly HashSet<string> _pendingRemovalKeys = new HashSet<string>();
+        private readonly Dictionary<SelectionRole, Button> _selectionButtons =
+            new Dictionary<SelectionRole, Button>();
         private SelectionRole? _activeSelectionRole;
         private SelectionRole? _pendingRemovalRole;
+        private bool _solidSelectionMode;
         private bool _synchronizingSelection;
         private int? _digitizeEventId;
 
@@ -213,20 +215,6 @@ namespace EspritSolidFixture
             _phase.ValueChanged += PhaseOnValueChanged;
             layout.Controls.Add(_phase);
 
-            layout.Controls.Add(Section("Carpeta de salida"));
-            _folderText = new TextBox
-            {
-                Text = "Se calculará desde el CAD del utillaje",
-                ReadOnly = true,
-                Dock = DockStyle.Top,
-                Height = 28,
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            layout.Controls.Add(_folderText);
-            _toolTip.SetToolTip(_folderText, _folderText.Text);
-
             var bottom = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -320,13 +308,17 @@ namespace EspritSolidFixture
             arrow.MouseEnter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
             arrow.MouseLeave += (s, e) =>
             {
-                if (!((Button)s).Focused) ShowNativeSelectionButtonBorder((Button)s, false);
+                var button = (Button)s;
+                if (!button.Focused && (!_activeSelectionRole.HasValue ||
+                    _activeSelectionRole.Value != role || !_solidSelectionMode))
+                    ShowNativeSelectionButtonBorder(button, false);
             };
             _toolTip.SetToolTip(arrow,
                 "Selección individual: elige un sólido completo en la vista");
 
             row.Controls.Add(selectionBox, 0, 0);
             row.Controls.Add(arrow, 1, 0);
+            _selectionButtons[role] = arrow;
             return row;
         }
 
@@ -334,6 +326,31 @@ namespace EspritSolidFixture
         {
             button.FlatAppearance.BorderSize = visible ? 1 : 0;
             button.FlatAppearance.BorderColor = Color.FromArgb(218, 174, 49);
+            button.BackColor = visible ? Color.FromArgb(255, 239, 167) : Color.White;
+            ApplyRoundedRegion(button, visible ? 5 : 0);
+        }
+
+        private static void ApplyRoundedRegion(Control control, int radius)
+        {
+            Region previous = control.Region;
+            if (radius <= 0)
+            {
+                control.Region = null;
+                previous?.Dispose();
+                return;
+            }
+
+            int diameter = radius * 2;
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            path.AddArc(0, 0, diameter, diameter, 180, 90);
+            path.AddArc(control.Width - diameter, 0, diameter, diameter, 270, 90);
+            path.AddArc(control.Width - diameter, control.Height - diameter,
+                diameter, diameter, 0, 90);
+            path.AddArc(0, control.Height - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            control.Region = new Region(path);
+            path.Dispose();
+            previous?.Dispose();
         }
 
         private void ActivateWindowSelection(SelectionRole role)
@@ -354,6 +371,10 @@ namespace EspritSolidFixture
             if (document == null) return;
 
             _activeSelectionRole = role;
+            _solidSelectionMode = solidOnly;
+            foreach (KeyValuePair<SelectionRole, Button> entry in _selectionButtons)
+                ShowNativeSelectionButtonBorder(entry.Value,
+                    solidOnly && entry.Key == role);
             _selectionRemovalTimer.Stop();
             _pendingRemovalKeys.Clear();
             _pendingRemovalRole = null;
@@ -431,7 +452,8 @@ namespace EspritSolidFixture
 
         private void DocumentGroupOnAdd(ref Array objects, object digitizedInfo)
         {
-            if (_synchronizingSelection || !_activeSelectionRole.HasValue || IsDisposed) return;
+            if (_synchronizingSelection || _solidSelectionMode ||
+                !_activeSelectionRole.HasValue || IsDisposed) return;
 
             // La selección por ventana suele quitar primero el grupo anterior y
             // añadir inmediatamente el nuevo. Si hay altas, esas bajas no deben
@@ -458,21 +480,66 @@ namespace EspritSolidFixture
             if (!_activeSelectionRole.HasValue || additions == null) return;
 
             SelectionRole role = _activeSelectionRole.Value;
+            int added = 0;
+            int removed = 0;
             if (role == SelectionRole.Part && additions.Count > 0)
-                _part = additions.First();
+            {
+                SolidChoice selected = additions.First();
+                if (_part != null && _part.Key == selected.Key)
+                {
+                    _part = null;
+                    removed = 1;
+                }
+                else
+                {
+                    _part = selected;
+                    added = 1;
+                }
+            }
             else if (role == SelectionRole.Stock && additions.Count > 0)
-                _stock = additions.First();
+            {
+                SolidChoice selected = additions.First();
+                if (_stock != null && _stock.Key == selected.Key)
+                {
+                    _stock = null;
+                    removed = 1;
+                }
+                else
+                {
+                    _stock = selected;
+                    added = 1;
+                }
+            }
             else if (role == SelectionRole.Fixtures)
                 foreach (SolidChoice solid in additions)
-                    if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
+                {
+                    int existingIndex = _fixtures.FindIndex(x => x.Key == solid.Key);
+                    if (existingIndex >= 0)
+                    {
+                        _fixtures.RemoveAt(existingIndex);
+                        removed++;
+                    }
+                    else
+                    {
+                        _fixtures.Add(solid);
+                        added++;
+                    }
+                }
 
             RefreshState();
             try { SynchronizeGraphicSelection((Esprit.Document)_app.Document); } catch { }
-            _hint.Text = additions.Count == 0
-                ? "La selección no contenía sólidos completos."
-                : additions.Count + (additions.Count == 1
-                    ? " sólido añadido."
-                    : " sólidos añadidos.");
+            if (additions.Count == 0)
+                _hint.Text = "La selección no contenía sólidos completos.";
+            else if (added > 0 && removed > 0)
+                _hint.Text = added + " añadido(s) y " + removed + " retirado(s).";
+            else if (removed > 0)
+                _hint.Text = removed == 1
+                    ? "1 sólido retirado de la selección."
+                    : removed + " sólidos retirados de la selección.";
+            else
+                _hint.Text = added == 1
+                    ? "1 sólido añadido."
+                    : added + " sólidos añadidos.";
         }
 
         private Esprit.Solid ResolveOwningSolid(object selected)
@@ -520,7 +587,8 @@ namespace EspritSolidFixture
 
         private void DocumentGroupOnRemove(ref Array objects)
         {
-            if (_synchronizingSelection || !_activeSelectionRole.HasValue || IsDisposed) return;
+            if (_synchronizingSelection || _solidSelectionMode ||
+                !_activeSelectionRole.HasValue || IsDisposed) return;
 
             _pendingRemovalKeys.Clear();
             foreach (object selected in objects)
@@ -660,8 +728,6 @@ namespace EspritSolidFixture
             StyleCombineButton();
 
             string folder = DetermineOutputFolder();
-            _folderText.Text = folder ?? "No se pudo determinar la ruta del CAD";
-            _toolTip.SetToolTip(_folderText, _folderText.Text);
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool definePartAndStock = _part != null && _stock != null;
             _accept.Enabled = (reusePreviousPart || definePartAndStock) &&
