@@ -30,7 +30,7 @@ namespace EspritSolidFixture
             }
         }
 
-        public Esprit.Workpiece ConfigurePartAndStock(Esprit.Solid partSolid, Esprit.Solid stockSolid)
+        public string ConfigurePartAndStock(Esprit.Solid partSolid, Esprit.Solid stockSolid)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
             if (stockSolid == null) throw new ArgumentNullException(nameof(stockSolid));
@@ -61,8 +61,9 @@ namespace EspritSolidFixture
                 stock.Tolerance = 0.1;
                 stock.Solid = (EspritSolids.SolidBody)stockSolid.SolidBody;
 
+                string workpieceKey = workpiece.Key;
                 setup.EndEdit();
-                return workpiece;
+                return workpieceKey;
             }
             catch
             {
@@ -71,11 +72,18 @@ namespace EspritSolidFixture
             }
         }
 
-        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, Esprit.Workpiece workpiece)
+        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
-            if (workpiece == null) throw new ArgumentNullException(nameof(workpiece));
+            if (string.IsNullOrWhiteSpace(workpieceKey))
+                throw new ArgumentException("La pieza de trabajo no tiene una clave válida.", nameof(workpieceKey));
+
+            // EndEdit invalida algunos wrappers COM cuando la pieza se crea desde cero.
+            // Se obtiene una referencia nueva por clave justo antes de editar la máquina.
+            Esprit.Workpiece workpiece = _document.Workpieces[workpieceKey];
+            if (workpiece == null)
+                throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");
 
             Esprit.MachineSetup setup = _document.InitialMachineSetup;
             setup.BeginEdit();

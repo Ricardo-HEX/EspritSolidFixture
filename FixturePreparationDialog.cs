@@ -452,12 +452,12 @@ namespace EspritSolidFixture
                 return;
             }
 
-            Esprit.Workpiece workpiece;
+            string workpieceKey;
             try
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                workpiece = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+                workpieceKey = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
             }
             catch (Exception ex)
             {
@@ -469,7 +469,7 @@ namespace EspritSolidFixture
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                assembler.MountFixturesAndWorkpiece(paths, workpiece);
+                assembler.MountFixturesAndWorkpiece(paths, workpieceKey);
             }
             catch (Exception ex)
             {
