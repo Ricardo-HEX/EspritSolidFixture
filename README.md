@@ -10,7 +10,7 @@ Al aceptar, la extensión actualiza la primera pieza de trabajo de **Configuraci
 
 La ventana se posiciona automáticamente en la esquina superior izquierda de ESPRIT, debajo de la cinta, y utiliza una cabecera con icono, acento verde y tipografía coherentes con ESPRIT EDGE.
 
-El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Z invertido**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol. En modo invertido también invierte el orden del árbol: el sólido con mayor Z original se monta primero, de forma que el conjunto completo quede reflejado.
+El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Giro Y 180° + Z 180°**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol.
 
 La salida utiliza la carpeta de accesorios configurada por cada cliente (`espFileTypeFixtures`) y crea dentro `Utillajes_<NombreCAD>`.
 
@@ -26,12 +26,12 @@ ese modo, el origen se sitúa en el centro de la base del sólido más bajo y `F
 en el centro superior del sólido que alcanza la mayor altura.
 
 El selector **Cara de montaje** permite elegir la cara inferior (Z normal) o la cara
-superior (Z invertido). En montaje superior ESPRIT crea copias temporales y refleja
-físicamente los sólidos respecto al plano XY global; después los exporta, normaliza
-solo su coordenada Z y elimina las copias. X e Y se mantienen sin desplazamiento. En
-modo combinado se toma la Z inferior del conjunto para la geometría y la Z superior
-para `FA_1`; `WA_1` continúa en el plano original mediante el mismo desplazamiento
-Z aplicado a la geometría.
+superior. Los GDML conservan siempre la geometría original. En montaje superior la
+extensión gira el accesorio raíz 180 grados sobre Y y después 180 grados sobre Z;
+todo el árbol de utillajes y la pieza heredan la misma transformación rígida. No se
+crean reflejos ni copias temporales. En modo combinado se toma la Z inferior del
+conjunto para la geometría y la Z superior para `FA_1`; `WA_1` continúa en el plano
+original mediante el mismo desplazamiento Z aplicado a la geometría.
 
 Los utillajes de la lista se pueden retirar seleccionándolos y pulsando `Supr`, o mediante clic derecho y **Eliminar**.
 

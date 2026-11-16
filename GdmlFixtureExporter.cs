@@ -22,22 +22,11 @@ namespace EspritSolidFixture
             Directory.CreateDirectory(folder);
             var paths = new List<string>();
             var sourceSolids = solids.ToList();
-            MirrorResources mirror = null;
-
             try
             {
-                List<Esprit.Solid> exportSolids = sourceSolids;
-                if (mountFromTop)
+                if (combine && sourceSolids.Count > 1)
                 {
-                    mirror = CreateMirroredCopies(sourceSolids);
-                    exportSolids = mirror.Copies;
-                    if (exportSolids.Count != sourceSolids.Count)
-                        throw new InvalidOperationException("ESPRIT no creó una copia reflejada para cada sólido.");
-                }
-
-                if (combine && exportSolids.Count > 1)
-                {
-                    var items = exportSolids.Select(solid => new SolidBounds(solid, GetBounds(solid))).ToList();
+                    var items = sourceSolids.Select(solid => new SolidBounds(solid, GetBounds(solid))).ToList();
                     SolidBounds lowest = items.OrderBy(x => x.Bounds.MinZ).First();
                     SolidBounds highest = items.OrderByDescending(x => x.Bounds.MaxZ).First();
                     string cadName = GetCadName(sourceSolids[0]);
@@ -47,7 +36,7 @@ namespace EspritSolidFixture
                     string path = MakeUniquePath(Path.Combine(folder, fileName));
 
                     _document.Group.Clear();
-                    foreach (Esprit.Solid solid in exportSolids) _document.Group.Add(solid);
+                    foreach (Esprit.Solid solid in sourceSolids) _document.Group.Add(solid);
                     _document.SaveAsGDML(path, EspritConstants.espFileType.espFileTypeFixtures);
 
                     NormalizeFixture(path, cadName, lowest.Bounds.MinZ, highest.Bounds.MaxZ);
@@ -55,10 +44,10 @@ namespace EspritSolidFixture
                 }
                 else
                 {
-                    for (int index = 0; index < exportSolids.Count; index++)
+                    for (int index = 0; index < sourceSolids.Count; index++)
                     {
-                        Esprit.Solid solid = exportSolids[index];
-                        Esprit.Solid sourceSolid = sourceSolids[index];
+                        Esprit.Solid solid = sourceSolids[index];
+                        Esprit.Solid sourceSolid = solid;
                         Bounds bounds = GetBounds(solid);
                         string cadName = GetCadName(sourceSolid);
                         string fileName = string.Format(CultureInfo.InvariantCulture,
@@ -78,54 +67,12 @@ namespace EspritSolidFixture
             }
             finally
             {
-                if (mirror != null) DeleteMirroredCopies(mirror);
                 _document.Group.Clear();
                 foreach (Esprit.Solid solid in sourceSolids) _document.Group.Add(solid);
                 _document.Refresh();
             }
 
             return paths;
-        }
-
-        private MirrorResources CreateMirroredCopies(List<Esprit.Solid> sourceSolids)
-        {
-            var existingKeys = new HashSet<string>(
-                _document.Solids.Cast<Esprit.Solid>().Select(x => Convert.ToString(x.Key)));
-            string suffix = Guid.NewGuid().ToString("N");
-            string planeName = "EspritSolidFixture_MirrorPlane_" + suffix;
-            string selectionName = "EspritSolidFixture_MirrorSelection_" + suffix;
-
-            Esprit.Plane plane = _document.Planes.Add(planeName);
-            plane.X = 0; plane.Y = 0; plane.Z = 0;
-            plane.Ux = 1; plane.Uy = 0; plane.Uz = 0;
-            plane.Vx = 0; plane.Vy = 1; plane.Vz = 0;
-            plane.Wx = 0; plane.Wy = 0; plane.Wz = 1;
-
-            Esprit.SelectionSet selection = _document.SelectionSets.Add(selectionName);
-            foreach (Esprit.Solid solid in sourceSolids) selection.Add(solid);
-            selection.AddCopiesToSelectionSet = true;
-            selection.Mirror(plane, true, true);
-
-            var copies = _document.Solids.Cast<Esprit.Solid>()
-                .Where(x => !existingKeys.Contains(Convert.ToString(x.Key)))
-                .OrderBy(x => x.Number)
-                .ToList();
-            return new MirrorResources(planeName, selectionName, copies);
-        }
-
-        private void DeleteMirroredCopies(MirrorResources mirror)
-        {
-            try
-            {
-                string deleteName = "EspritSolidFixture_Delete_" + Guid.NewGuid().ToString("N");
-                Esprit.SelectionSet deleteSet = _document.SelectionSets.Add(deleteName);
-                foreach (Esprit.Solid solid in mirror.Copies) deleteSet.Add(solid);
-                deleteSet.DeleteAll();
-                _document.SelectionSets.Remove(deleteName);
-            }
-            catch { }
-            try { _document.SelectionSets.Remove(mirror.SelectionName); } catch { }
-            try { _document.Planes.Remove(mirror.PlaneName); } catch { }
         }
 
         private static Bounds GetBounds(Esprit.Solid solid)
@@ -272,18 +219,5 @@ namespace EspritSolidFixture
             public Bounds Bounds { get; }
         }
 
-        private sealed class MirrorResources
-        {
-            public MirrorResources(string planeName, string selectionName, List<Esprit.Solid> copies)
-            {
-                PlaneName = planeName;
-                SelectionName = selectionName;
-                Copies = copies;
-            }
-
-            public string PlaneName { get; }
-            public string SelectionName { get; }
-            public List<Esprit.Solid> Copies { get; }
-        }
     }
 }

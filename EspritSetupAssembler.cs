@@ -86,7 +86,7 @@ namespace EspritSolidFixture
         }
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
-            bool createNewConfiguration)
+            bool createNewConfiguration, bool rotateAssembly)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
@@ -129,14 +129,23 @@ namespace EspritSolidFixture
                 }
 
                 Esprit.MachineItems mountingItems = setup.MachineItems;
+                Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
                 foreach (string path in paths)
                 {
                     step = "cargar el accesorio " + Path.GetFileName(path);
                     Esprit.Fixture fixture = mountingItems.AddFixture(path);
                     fixture.Name = Path.GetFileNameWithoutExtension(path);
+                    if (rootFixture == null) rootFixture = fixture;
                     topFixture = fixture;
                     mountingItems = fixture.MachineItems;
+                }
+
+                if (rotateAssembly)
+                {
+                    step = "girar el montaje 180 grados sobre Y y después sobre Z";
+                    rootFixture.YRotation = 180.0;
+                    rootFixture.ZRotation = 180.0;
                 }
 
                 step = "crear la instancia de pieza sobre el accesorio";
