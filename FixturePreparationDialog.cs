@@ -26,11 +26,13 @@ namespace EspritSolidFixture
         private readonly Label _hint;
         private readonly Label _countLabel;
         private readonly CheckBox _combine;
+        private readonly Button _windowSelection;
         private readonly RadioButton _mountBottom;
         private readonly RadioButton _mountTop;
         private readonly ComboBox _destination;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private bool _capturing;
+        private bool _windowSelecting;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -107,24 +109,51 @@ namespace EspritSolidFixture
             };
             layout.Controls.Add(_countLabel);
 
+            var fixtureActions = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                ColumnCount = 2,
+                Margin = new Padding(0, 3, 0, 10),
+                BackColor = Color.White
+            };
+            fixtureActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            fixtureActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
+            _windowSelection = new Button
+            {
+                Text = "Selección por ventana",
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Margin = new Padding(0, 0, 6, 0),
+                Cursor = Cursors.Hand
+            };
+            _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            _windowSelection.Click += WindowSelectionOnClick;
+            _toolTip.SetToolTip(_windowSelection,
+                "Permite seleccionar varios sólidos mediante una ventana en la vista.");
+
             _combine = new CheckBox
             {
                 Text = "Combinar sólidos",
                 Appearance = Appearance.Button,
-                Dock = DockStyle.Top,
-                Height = 38,
+                Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(0, 3, 0, 10),
+                Margin = new Padding(6, 0, 0, 0),
                 Cursor = Cursors.Hand
             };
             _combine.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _combine.CheckedChanged += (s, e) => StyleCombineButton();
             _toolTip.SetToolTip(_combine,
                 "Crea un único GDML con todos los sólidos seleccionados.");
-            layout.Controls.Add(_combine);
+            fixtureActions.Controls.Add(_windowSelection, 0, 0);
+            fixtureActions.Controls.Add(_combine, 1, 0);
+            layout.Controls.Add(fixtureActions);
 
             layout.Controls.Add(Section("Cara de montaje"));
             var mountingChoices = new TableLayoutPanel
@@ -278,6 +307,54 @@ namespace EspritSolidFixture
                 : "Selecciona el sólido que define el bruto.";
             ActivatePartView();
             BeginInvoke(new Action(() => CaptureSingleSolid(role)));
+        }
+
+        private void WindowSelectionOnClick(object sender, EventArgs e)
+        {
+            Esprit.Document document;
+            try { document = (Esprit.Document)_app.Document; }
+            catch { return; }
+            if (document == null) return;
+
+            if (!_windowSelecting)
+            {
+                _capturing = false;
+                _windowSelecting = true;
+                document.Group.Clear();
+                document.Refresh();
+                _windowSelection.Text = "Añadir selección";
+                _windowSelection.BackColor = SelectionOrange;
+                _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(224, 128, 45);
+                _hint.Text = "Arrastra una ventana en la vista y pulsa Añadir selección.";
+                ActivatePartView();
+                return;
+            }
+
+            var additions = new List<SolidChoice>();
+            for (int index = 1; index <= document.Group.Count; index++)
+            {
+                object selected = document.Group[index];
+                if (selected is Esprit.Solid solid)
+                    additions.Add(SolidChoice.FromSolid(solid));
+            }
+
+            foreach (SolidChoice choice in additions)
+            {
+                if (_fixtures.All(x => x.Key != choice.Key))
+                    _fixtures.Add(choice);
+            }
+
+            _windowSelecting = false;
+            _windowSelection.Text = "Selección por ventana";
+            _windowSelection.BackColor = Color.White;
+            _windowSelection.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            SynchronizeGraphicSelection(document);
+            RefreshState();
+            _hint.Text = additions.Count == 0
+                ? "La ventana no contenía sólidos completos."
+                : additions.Count + (additions.Count == 1
+                    ? " sólido detectado por ventana."
+                    : " sólidos detectados por ventana.");
         }
 
         private void CaptureSingleSolid(SelectionRole role)
