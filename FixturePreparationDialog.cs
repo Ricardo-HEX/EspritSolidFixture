@@ -331,7 +331,8 @@ namespace EspritSolidFixture
             var additions = new List<SolidChoice>();
             foreach (object selected in objects)
             {
-                if (selected is Esprit.Solid solid)
+                Esprit.Solid solid = ResolveOwningSolid(selected);
+                if (solid != null && additions.All(x => x.Key != Convert.ToString(solid.Key)))
                     additions.Add(SolidChoice.FromSolid(solid));
             }
 
@@ -345,11 +346,58 @@ namespace EspritSolidFixture
                     if (_fixtures.All(x => x.Key != solid.Key)) _fixtures.Add(solid);
 
             RefreshState();
+            // ESPRIT puede devolver caras, aristas o vértices al seleccionar por
+            // clic o ventana. Sustituimos esos subelementos por sus sólidos para
+            // mantener simultáneamente la selección por ventana y el filtro sólido.
+            try { SynchronizeGraphicSelection((Esprit.Document)_app.Document); } catch { }
             _hint.Text = additions.Count == 0
                 ? "La selección no contenía sólidos completos."
                 : additions.Count + (additions.Count == 1
                     ? " sólido añadido."
                     : " sólidos añadidos.");
+        }
+
+        private Esprit.Solid ResolveOwningSolid(object selected)
+        {
+            if (selected is Esprit.Solid solid) return solid;
+
+            EspritSolids.ISolidBody selectedBody = null;
+            try
+            {
+                if (selected is EspritSolids.ISolidFace face)
+                    selectedBody = face.SolidBody;
+                else if (selected is EspritSolids.ISolidEdge edge)
+                    selectedBody = edge.SolidBody;
+                else if (selected is EspritSolids.ISolidVertex vertex)
+                    selectedBody = vertex.SolidBody;
+                else if (selected is EspritSolids.ISolidBody body)
+                    selectedBody = body;
+            }
+            catch { }
+
+            if (selectedBody == null) return null;
+
+            int bodyIdentity;
+            try { bodyIdentity = selectedBody.Identity; }
+            catch { return null; }
+
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                foreach (Esprit.Solid candidate in document.Solids)
+                {
+                    try
+                    {
+                        var candidateBody = (EspritSolids.ISolidBody)candidate.SolidBody;
+                        if (candidateBody != null && candidateBody.Identity == bodyIdentity)
+                            return candidate;
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            return null;
         }
 
         private void DocumentGroupOnRemove(ref Array objects)
