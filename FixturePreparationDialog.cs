@@ -1024,7 +1024,12 @@ namespace EspritSolidFixture
             {
                 // Primero se entra en la configuración de pieza. Los comandos
                 // AddStockBlock/AddStockBar solo son válidos dentro de este modo.
-                _app.RunCommand("Setup.Part");
+                var ribbon = (ESPRIT.NetApi.Ribbon.IRibbon)_app.Ribbon;
+                var partSetupItems = ribbon.FindRibbonItems("Setup.Part");
+                if (partSetupItems == null || partSetupItems.Count == 0)
+                    throw new InvalidOperationException(
+                        "No se encontró el comando nativo Configuración de la pieza.");
+                _app.RunCommand(partSetupItems[0].CommandId);
                 try
                 {
                     Esprit.Document document = (Esprit.Document)_app.Document;
@@ -1075,7 +1080,7 @@ namespace EspritSolidFixture
                         _nativeStockReadyTicks++;
                         if (_nativeStockReadyTicks < 2) return;
 
-                        _app.RunCommand(command);
+                        _app.RunCommand(items[0].CommandId);
                         _nativeStockCommandSent = true;
                     }
                     return;
