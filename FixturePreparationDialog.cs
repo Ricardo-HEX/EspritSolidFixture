@@ -1253,28 +1253,58 @@ namespace EspritSolidFixture
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 if (mode == StockMode.Esprit)
                 {
-                    DrawNativeCube(graphics, dark, top, front, side, 5, 4, 16, 16);
+                    DrawNativeCube(graphics, dark, top, front, side, 3, 3, 17, 17);
                 }
                 else if (mode == StockMode.Solid)
                 {
-                    // Tres cubos isométricos como el comando Sólido nativo.
-                    DrawNativeCube(graphics, dark, top, front, side, 3, 12, 9, 9);
-                    DrawNativeCube(graphics, dark, top, front, side, 16, 12, 9, 9);
-                    DrawNativeCube(graphics, dark, top, front, side, 10, 3, 9, 9);
+                    // Dos sólidos y un cursor, siguiendo el comando nativo de ESPRIT.
+                    DrawNativeCube(graphics, dark, top, front, side, 2, 10, 11, 11);
+                    DrawNativeCube(graphics, dark, top, front, side, 13, 3, 11, 11);
+                    using (var cursorFill = new SolidBrush(Color.FromArgb(55, 62, 66)))
+                    {
+                        var cursor = new[]
+                        {
+                            new Point(13, 15), new Point(18, 20), new Point(15, 20),
+                            new Point(17, 24), new Point(15, 25), new Point(13, 21),
+                            new Point(11, 23)
+                        };
+                        graphics.FillPolygon(cursorFill, cursor);
+                    }
                 }
                 else
                 {
-                    graphics.FillRectangle(yellow, 4, 11, 22, 11);
-                    graphics.FillRectangle(yellow, 6, 8, 9, 5);
-                    graphics.DrawRectangle(dark, 4, 11, 22, 11);
-                    graphics.DrawLine(dark, 6, 8, 15, 8);
-                    graphics.DrawLine(dark, 15, 8, 18, 11);
-                    DrawNativeCube(graphics, dark, top, front, side, 10, 2, 10, 10);
+                    // Carpeta abierta con todo el contorno visible.
+                    graphics.FillPolygon(yellow, new[]
+                    {
+                        new Point(3, 8), new Point(3, 22), new Point(26, 22),
+                        new Point(26, 11), new Point(15, 11), new Point(13, 8)
+                    });
+                    graphics.DrawPolygon(dark, new[]
+                    {
+                        new Point(3, 8), new Point(13, 8), new Point(15, 11),
+                        new Point(26, 11), new Point(26, 22), new Point(3, 22)
+                    });
+                    using (var openFill = new SolidBrush(Color.FromArgb(250, 213, 92)))
+                    {
+                        graphics.FillPolygon(openFill, new[]
+                        {
+                            new Point(3, 13), new Point(28, 13),
+                            new Point(24, 23), new Point(3, 23)
+                        });
+                    }
+                    graphics.DrawPolygon(dark, new[]
+                    {
+                        new Point(3, 13), new Point(28, 13),
+                        new Point(24, 23), new Point(3, 23)
+                    });
                 }
                 using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2F))
                 {
-                    graphics.DrawLine(plus, 25, 16, 25, 24);
-                    graphics.DrawLine(plus, 21, 20, 29, 20);
+                    if (mode != StockMode.File)
+                    {
+                        graphics.DrawLine(plus, 25, 15, 25, 23);
+                        graphics.DrawLine(plus, 21, 19, 29, 19);
+                    }
                 }
             }
             return bitmap;
