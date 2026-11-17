@@ -1242,7 +1242,9 @@ namespace EspritSolidFixture
 
         private static Bitmap CreateStockModeIcon(StockMode mode)
         {
-            var bitmap = new Bitmap(30, 26);
+            // La altura se mantiene en 22 px para que ImageAboveText no recorte
+            // el borde inferior dentro del RadioButton de WinForms.
+            var bitmap = new Bitmap(30, 22);
             using (Graphics graphics = Graphics.FromImage(bitmap))
             using (var front = new SolidBrush(Color.FromArgb(178, 183, 186)))
             using (var top = new SolidBrush(Color.FromArgb(220, 223, 224)))
@@ -1253,20 +1255,20 @@ namespace EspritSolidFixture
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 if (mode == StockMode.Esprit)
                 {
-                    DrawNativeCube(graphics, dark, top, front, side, 3, 3, 17, 17);
+                    DrawNativeCube(graphics, dark, top, front, side, 3, 2, 16, 15);
                 }
                 else if (mode == StockMode.Solid)
                 {
                     // Dos sólidos y un cursor, siguiendo el comando nativo de ESPRIT.
-                    DrawNativeCube(graphics, dark, top, front, side, 2, 10, 11, 11);
-                    DrawNativeCube(graphics, dark, top, front, side, 13, 3, 11, 11);
+                    DrawNativeCube(graphics, dark, top, front, side, 2, 8, 10, 10);
+                    DrawNativeCube(graphics, dark, top, front, side, 13, 2, 10, 10);
                     using (var cursorFill = new SolidBrush(Color.FromArgb(55, 62, 66)))
                     {
                         var cursor = new[]
                         {
-                            new Point(13, 15), new Point(18, 20), new Point(15, 20),
-                            new Point(17, 24), new Point(15, 25), new Point(13, 21),
-                            new Point(11, 23)
+                            new Point(12, 12), new Point(17, 17), new Point(14, 17),
+                            new Point(16, 20), new Point(14, 21), new Point(12, 18),
+                            new Point(10, 20)
                         };
                         graphics.FillPolygon(cursorFill, cursor);
                     }
@@ -1276,34 +1278,34 @@ namespace EspritSolidFixture
                     // Carpeta abierta con todo el contorno visible.
                     graphics.FillPolygon(yellow, new[]
                     {
-                        new Point(3, 8), new Point(3, 22), new Point(26, 22),
-                        new Point(26, 11), new Point(15, 11), new Point(13, 8)
+                        new Point(3, 6), new Point(3, 20), new Point(26, 20),
+                        new Point(26, 9), new Point(15, 9), new Point(13, 6)
                     });
                     graphics.DrawPolygon(dark, new[]
                     {
-                        new Point(3, 8), new Point(13, 8), new Point(15, 11),
-                        new Point(26, 11), new Point(26, 22), new Point(3, 22)
+                        new Point(3, 6), new Point(13, 6), new Point(15, 9),
+                        new Point(26, 9), new Point(26, 20), new Point(3, 20)
                     });
                     using (var openFill = new SolidBrush(Color.FromArgb(250, 213, 92)))
                     {
                         graphics.FillPolygon(openFill, new[]
                         {
-                            new Point(3, 13), new Point(28, 13),
-                            new Point(24, 23), new Point(3, 23)
+                            new Point(3, 11), new Point(28, 11),
+                            new Point(24, 21), new Point(3, 21)
                         });
                     }
                     graphics.DrawPolygon(dark, new[]
                     {
-                        new Point(3, 13), new Point(28, 13),
-                        new Point(24, 23), new Point(3, 23)
+                        new Point(3, 11), new Point(28, 11),
+                        new Point(24, 21), new Point(3, 21)
                     });
                 }
                 using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2F))
                 {
                     if (mode != StockMode.File)
                     {
-                        graphics.DrawLine(plus, 25, 15, 25, 23);
-                        graphics.DrawLine(plus, 21, 19, 29, 19);
+                        graphics.DrawLine(plus, 25, 12, 25, 20);
+                        graphics.DrawLine(plus, 21, 16, 29, 16);
                     }
                 }
             }
