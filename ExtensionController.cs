@@ -207,32 +207,41 @@ namespace EspritSolidFixture
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (var fixture = new SolidBrush(Color.FromArgb(70, 92, 108)))
-                    using (var fixtureTop = new SolidBrush(Color.FromArgb(119, 139, 151)))
-                    using (var part = new SolidBrush(Color.FromArgb(75, 174, 207)))
-                    using (var partTop = new SolidBrush(Color.FromArgb(132, 210, 229)))
+                    using (var fixture = new SolidBrush(Color.FromArgb(112, 128, 137)))
+                    using (var fixtureTop = new SolidBrush(Color.FromArgb(194, 203, 207)))
+                    using (var fixtureSide = new SolidBrush(Color.FromArgb(79, 99, 110)))
+                    using (var part = new SolidBrush(Color.FromArgb(91, 158, 198)))
+                    using (var partTop = new SolidBrush(Color.FromArgb(168, 211, 231)))
+                    using (var partSide = new SolidBrush(Color.FromArgb(65, 119, 153)))
                     using (var outline = new Pen(Color.FromArgb(52, 71, 82), 1F))
-                    using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2.4F))
+                    using (var plus = new Pen(Color.FromArgb(67, 161, 45), 1.7F))
                     {
-                        // Silueta sencilla de mordaza con una pieza azul entre las garras.
-                        graphics.FillPolygon(fixtureTop, new[] { new Point(3, 20), new Point(7, 17), new Point(26, 17), new Point(22, 20) });
-                        graphics.FillPolygon(fixture, new[] { new Point(3, 20), new Point(22, 20), new Point(22, 27), new Point(3, 27) });
-                        graphics.FillRectangle(fixture, 5, 12, 5, 7);
-                        graphics.FillRectangle(fixture, 20, 12, 5, 7);
-                        graphics.DrawRectangle(outline, 3, 20, 19, 7);
-                        graphics.DrawRectangle(outline, 5, 12, 5, 7);
-                        graphics.DrawRectangle(outline, 20, 12, 5, 7);
+                        // Base gris isométrica.
+                        Point[] baseTop = { new Point(2, 21), new Point(7, 17), new Point(25, 17), new Point(20, 21) };
+                        Point[] baseFront = { new Point(2, 21), new Point(20, 21), new Point(20, 28), new Point(2, 25) };
+                        Point[] baseSide = { new Point(20, 21), new Point(25, 17), new Point(25, 24), new Point(20, 28) };
+                        graphics.FillPolygon(fixtureTop, baseTop);
+                        graphics.FillPolygon(fixture, baseFront);
+                        graphics.FillPolygon(fixtureSide, baseSide);
+                        graphics.DrawPolygon(outline, baseTop);
+                        graphics.DrawPolygon(outline, baseFront);
+                        graphics.DrawPolygon(outline, baseSide);
 
-                        graphics.FillPolygon(partTop, new[] { new Point(10, 10), new Point(13, 7), new Point(20, 7), new Point(17, 10) });
-                        graphics.FillRectangle(part, 10, 10, 7, 8);
-                        graphics.DrawRectangle(outline, 10, 10, 7, 8);
-                        graphics.DrawLine(outline, 10, 10, 13, 7);
-                        graphics.DrawLine(outline, 13, 7, 20, 7);
-                        graphics.DrawLine(outline, 20, 7, 17, 10);
+                        // Pieza azul inspirada en el icono nativo de Configuración de la pieza.
+                        Point[] blueTop = { new Point(7, 10), new Point(13, 5), new Point(25, 5), new Point(19, 10) };
+                        Point[] blueFront = { new Point(7, 10), new Point(19, 10), new Point(19, 20), new Point(7, 18) };
+                        Point[] blueSide = { new Point(19, 10), new Point(25, 5), new Point(25, 15), new Point(19, 20) };
+                        graphics.FillPolygon(partTop, blueTop);
+                        graphics.FillPolygon(part, blueFront);
+                        graphics.FillPolygon(partSide, blueSide);
+                        graphics.DrawPolygon(outline, blueTop);
+                        graphics.DrawPolygon(outline, blueFront);
+                        graphics.DrawPolygon(outline, blueSide);
+                        graphics.FillRectangle(fixtureSide, 10, 12, 5, 4);
 
-                        // Acción de crear/añadir.
-                        graphics.DrawLine(plus, 27, 2, 27, 11);
-                        graphics.DrawLine(plus, 22.5F, 6.5F, 31, 6.5F);
+                        // Acción de crear/añadir, fina y abajo a la derecha.
+                        graphics.DrawLine(plus, 27, 21, 27, 30);
+                        graphics.DrawLine(plus, 22.5F, 25.5F, 31, 25.5F);
                     }
                     IntPtr handle = bitmap.GetHicon();
                     try { return (Icon)Icon.FromHandle(handle).Clone(); }
