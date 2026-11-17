@@ -207,13 +207,12 @@ namespace EspritSolidFixture
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (var fixture = new SolidBrush(Color.FromArgb(112, 128, 137)))
-                    using (var fixtureTop = new SolidBrush(Color.FromArgb(194, 203, 207)))
-                    using (var fixtureSide = new SolidBrush(Color.FromArgb(79, 99, 110)))
-                    using (var part = new SolidBrush(Color.FromArgb(91, 158, 198)))
-                    using (var partTop = new SolidBrush(Color.FromArgb(168, 211, 231)))
-                    using (var partSide = new SolidBrush(Color.FromArgb(65, 119, 153)))
-                    using (var outline = new Pen(Color.FromArgb(52, 71, 82), 1F))
+                    using (var fixture = new SolidBrush(Color.FromArgb(178, 190, 196)))
+                    using (var fixtureTop = new SolidBrush(Color.FromArgb(211, 219, 223)))
+                    using (var fixtureSide = new SolidBrush(Color.FromArgb(139, 158, 168)))
+                    using (var part = new SolidBrush(Color.FromArgb(116, 187, 219)))
+                    using (var partTop = new SolidBrush(Color.FromArgb(190, 226, 241)))
+                    using (var partSide = new SolidBrush(Color.FromArgb(76, 145, 181)))
                     using (var plus = new Pen(Color.FromArgb(67, 161, 45), 1.7F))
                     {
                         // Base gris isométrica.
@@ -223,9 +222,6 @@ namespace EspritSolidFixture
                         graphics.FillPolygon(fixtureTop, baseTop);
                         graphics.FillPolygon(fixture, baseFront);
                         graphics.FillPolygon(fixtureSide, baseSide);
-                        graphics.DrawPolygon(outline, baseTop);
-                        graphics.DrawPolygon(outline, baseFront);
-                        graphics.DrawPolygon(outline, baseSide);
 
                         // Cubo azul, centrado y con la misma perspectiva que la base.
                         Point[] blueTop = { new Point(7, 10), new Point(12, 6), new Point(23, 6), new Point(18, 10) };
@@ -234,9 +230,6 @@ namespace EspritSolidFixture
                         graphics.FillPolygon(partTop, blueTop);
                         graphics.FillPolygon(part, blueFront);
                         graphics.FillPolygon(partSide, blueSide);
-                        graphics.DrawPolygon(outline, blueTop);
-                        graphics.DrawPolygon(outline, blueFront);
-                        graphics.DrawPolygon(outline, blueSide);
                         // Acción de crear/añadir, fina y abajo a la derecha.
                         graphics.DrawLine(plus, 27, 21, 27, 30);
                         graphics.DrawLine(plus, 22.5F, 25.5F, 31, 25.5F);
