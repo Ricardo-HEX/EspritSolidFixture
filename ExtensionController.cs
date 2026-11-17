@@ -206,7 +206,9 @@ namespace EspritSolidFixture
                 using (var bitmap = new Bitmap(32, 32))
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    // Las caras comparten aristas. Sin antialiasing se evita la
+                    // línea gris que GDI+ introduce entre polígonos adyacentes.
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
                     using (var fixture = new SolidBrush(Color.FromArgb(178, 190, 196)))
                     using (var fixtureTop = new SolidBrush(Color.FromArgb(211, 219, 223)))
                     using (var fixtureSide = new SolidBrush(Color.FromArgb(139, 158, 168)))
@@ -231,6 +233,7 @@ namespace EspritSolidFixture
                         graphics.FillPolygon(part, blueFront);
                         graphics.FillPolygon(partSide, blueSide);
                         // Acción de crear/añadir, fina y abajo a la derecha.
+                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                         graphics.DrawLine(plus, 27, 21, 27, 30);
                         graphics.DrawLine(plus, 22.5F, 25.5F, 31, 25.5F);
                     }
