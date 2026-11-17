@@ -29,6 +29,7 @@ namespace EspritSolidFixture
         private readonly Panel _stockContext;
         private readonly Label _stockGuidance;
         private readonly Control _stockSolidRow;
+        private readonly Control _stockFileRow;
         private readonly Label _stockFileText;
         private readonly Button _stockBrowse;
         private readonly Button _accept;
@@ -159,7 +160,7 @@ namespace EspritSolidFixture
                 BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(8, 0, 34, 0),
+                Padding = new Padding(8, 0, 4, 0),
                 AutoEllipsis = true
             };
             _stockBrowse = new Button
@@ -168,7 +169,7 @@ namespace EspritSolidFixture
                 ImageAlign = ContentAlignment.MiddleCenter,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Size = new Size(26, 26),
-                Location = new Point(0, 1),
+                Margin = new Padding(2, 1, 0, 0),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 Cursor = Cursors.Hand,
@@ -188,13 +189,25 @@ namespace EspritSolidFixture
                 if (!button.Focused) ShowNativeSelectionButtonBorder(button, false);
             };
             _toolTip.SetToolTip(_stockBrowse, "Seleccionar un archivo STL");
-            _stockContext.Resize += (s, e) =>
-                _stockBrowse.Location = new Point(
-                    Math.Max(0, _stockContext.ClientSize.Width - _stockBrowse.Width - 3), 1);
+            var stockFileRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Height = 46,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.White
+            };
+            stockFileRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            stockFileRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
+            _stockFileText.Dock = DockStyle.Fill;
+            _stockFileText.Margin = new Padding(0, 0, 4, 0);
+            stockFileRow.Controls.Add(_stockFileText, 0, 0);
+            stockFileRow.Controls.Add(_stockBrowse, 1, 0);
+            _stockFileRow = stockFileRow;
             _stockContext.Controls.Add(_stockGuidance);
             _stockContext.Controls.Add(_stockSolidRow);
-            _stockContext.Controls.Add(_stockFileText);
-            _stockContext.Controls.Add(_stockBrowse);
+            _stockContext.Controls.Add(_stockFileRow);
             layout.Controls.Add(_stockContext);
 
             layout.Controls.Add(Section("Utillajes"));
@@ -474,8 +487,7 @@ namespace EspritSolidFixture
             bool file = _stockMode == StockMode.File;
             _stockGuidance.Visible = !solid && !file;
             _stockSolidRow.Visible = solid;
-            _stockFileText.Visible = file;
-            _stockBrowse.Visible = file;
+            _stockFileRow.Visible = file;
 
             if (_stockMode == StockMode.Esprit)
                 _stockGuidance.Text =
@@ -488,8 +500,7 @@ namespace EspritSolidFixture
             if (solid) _stockSolidRow.BringToFront();
             else if (file)
             {
-                _stockFileText.BringToFront();
-                _stockBrowse.BringToFront();
+                _stockFileRow.BringToFront();
             }
             else _stockGuidance.BringToFront();
         }
