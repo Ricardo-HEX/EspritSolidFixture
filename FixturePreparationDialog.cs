@@ -29,7 +29,7 @@ namespace EspritSolidFixture
         private readonly Panel _stockContext;
         private readonly Label _stockGuidance;
         private readonly Control _stockSolidRow;
-        private readonly TextBox _stockFileText;
+        private readonly Label _stockFileText;
         private readonly Button _stockBrowse;
         private readonly Button _accept;
         private readonly Label _hint;
@@ -37,7 +37,8 @@ namespace EspritSolidFixture
         private readonly CheckBox _combine;
         private readonly RadioButton _mountBottom;
         private readonly RadioButton _mountTop;
-        private readonly ComboBox _destination;
+        private readonly RadioButton _destinationCurrent;
+        private readonly RadioButton _destinationNew;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private readonly Esprit.Group _documentGroup;
         private readonly Timer _selectionRemovalTimer;
@@ -133,10 +134,10 @@ namespace EspritSolidFixture
             _stockContext = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 50,
+                Height = 42,
                 Margin = new Padding(0, 0, 0, 2),
-                BackColor = Color.FromArgb(247, 249, 250),
-                Padding = new Padding(8, 5, 4, 5)
+                BackColor = Color.White,
+                Padding = new Padding(0)
             };
             _stockGuidance = new Label
             {
@@ -150,21 +151,24 @@ namespace EspritSolidFixture
             _stockSolidRow = SelectionRow(_stockBox, SelectionRole.Stock);
             _stockSolidRow.Dock = DockStyle.Fill;
             _stockSolidRow.Margin = new Padding(0);
-            _stockFileText = new TextBox
+            _stockFileText = new Label
             {
-                ReadOnly = true,
                 Dock = DockStyle.Fill,
                 BackColor = SelectionBackground,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 4, 0),
+                AutoEllipsis = true
             };
             _stockBrowse = new Button
             {
                 Text = "Examinar…",
                 Dock = DockStyle.Right,
-                Width = 105,
+                Width = 116,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                Margin = new Padding(6, 0, 0, 0)
             };
             _stockBrowse.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _stockBrowse.Click += BrowseStockFile;
@@ -248,21 +252,27 @@ namespace EspritSolidFixture
             StyleMountingChoices();
 
             layout.Controls.Add(Section("Destino del montaje"));
-            _destination = new ComboBox
+            var destinationChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 30,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Margin = new Padding(0, 0, 0, 8)
+                Height = 62,
+                ColumnCount = 2,
+                Margin = new Padding(0, 0, 0, 8),
+                BackColor = Color.White
             };
-            _destination.Items.AddRange(new object[]
-            {
-                "Configuración actual",
-                "Nueva configuración"
-            });
-            _destination.SelectedIndex = 0;
-            _destination.SelectedIndexChanged += DestinationOnSelectedIndexChanged;
-            layout.Controls.Add(_destination);
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _destinationCurrent = MountingChoice("Configuración actual\r\nUsar el montaje activo", true);
+            _destinationNew = MountingChoice("Nueva configuración\r\nCrear la siguiente fase", false);
+            _destinationCurrent.Margin = new Padding(0, 0, 6, 0);
+            _destinationNew.Margin = new Padding(6, 0, 0, 0);
+            _destinationCurrent.CheckedChanged += DestinationOnCheckedChanged;
+            _destinationNew.CheckedChanged += DestinationOnCheckedChanged;
+            destinationChoices.Controls.Add(_destinationCurrent, 0, 0);
+            destinationChoices.Controls.Add(_destinationNew, 1, 0);
+            layout.Controls.Add(destinationChoices);
+            StyleMountingChoice(_destinationCurrent);
+            StyleMountingChoice(_destinationNew);
 
             _hint = new Label
             {
@@ -758,9 +768,11 @@ namespace EspritSolidFixture
                 : removed + " sólidos retirados de la selección.";
         }
 
-        private void DestinationOnSelectedIndexChanged(object sender, EventArgs e)
+        private void DestinationOnCheckedChanged(object sender, EventArgs e)
         {
-            if ((MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration)
+            StyleMountingChoice(_destinationCurrent);
+            StyleMountingChoice(_destinationNew);
+            if (_destinationNew.Checked)
             {
                 _mountTop.Checked = true;
             }
@@ -785,8 +797,7 @@ namespace EspritSolidFixture
 
         private int GetAutomaticPhaseNumber()
         {
-            return (MountDestination)_destination.SelectedIndex ==
-                   MountDestination.NewConfiguration
+            return _destinationNew.Checked
                 ? GetNextConfigurationNumber()
                 : 1;
         }
@@ -950,8 +961,7 @@ namespace EspritSolidFixture
             var pending = new PendingMount
             {
                 Paths = paths,
-                CreateNewConfiguration =
-                    (MountDestination)_destination.SelectedIndex == MountDestination.NewConfiguration,
+                CreateNewConfiguration = _destinationNew.Checked,
                 RotateAssembly = _mountTop.Checked,
                 MountingStackHeight = mountingStackHeight,
                 WorkOffsetBaseZ = workOffsetBaseZ
@@ -1103,8 +1113,7 @@ namespace EspritSolidFixture
 
         private bool CanReusePreviousPart()
         {
-            return (MountDestination)_destination.SelectedIndex ==
-                   MountDestination.NewConfiguration;
+            return _destinationNew.Checked;
         }
 
         private void CancelPreparation(object sender, EventArgs e)
@@ -1249,11 +1258,6 @@ namespace EspritSolidFixture
                     graphics.DrawLine(dark, 5, 6, 10, 2);
                     graphics.DrawLine(dark, 22, 6, 17, 2);
                     graphics.DrawLine(dark, 10, 2, 17, 2);
-                    using (var plus = new Pen(Color.FromArgb(75, 155, 45), 2F))
-                    {
-                        graphics.DrawLine(plus, 22, 14, 22, 23);
-                        graphics.DrawLine(plus, 18, 18.5F, 26, 18.5F);
-                    }
                 }
                 else if (mode == StockMode.Solid)
                 {
@@ -1271,6 +1275,11 @@ namespace EspritSolidFixture
                     graphics.DrawRectangle(dark, 3, 7, 22, 14);
                     graphics.DrawLine(dark, 5, 3, 14, 3);
                     graphics.DrawLine(dark, 14, 3, 17, 7);
+                }
+                using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2F))
+                {
+                    graphics.DrawLine(plus, 23, 15, 23, 23);
+                    graphics.DrawLine(plus, 19, 19, 27, 19);
                 }
             }
             return bitmap;
@@ -1446,12 +1455,6 @@ namespace EspritSolidFixture
             Part,
             Stock,
             Fixtures
-        }
-
-        private enum MountDestination
-        {
-            CurrentConfiguration = 0,
-            NewConfiguration = 1
         }
 
         private enum StockMode

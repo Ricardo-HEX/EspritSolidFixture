@@ -203,10 +203,34 @@ namespace EspritSolidFixture
         {
             try
             {
-                Assembly assembly = Assembly.GetExecutingAssembly();
-                using (Stream stream = assembly.GetManifestResourceStream("EspritSolidFixture.Resources.Fixture.png"))
-                using (var bitmap = new Bitmap(stream))
+                using (var bitmap = new Bitmap(32, 32))
+                using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
+                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (var fixture = new SolidBrush(Color.FromArgb(75, 105, 125)))
+                    using (var fixtureTop = new SolidBrush(Color.FromArgb(120, 145, 160)))
+                    using (var part = new SolidBrush(Color.FromArgb(66, 174, 210)))
+                    using (var outline = new Pen(Color.FromArgb(45, 68, 82), 1.2F))
+                    using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2.4F))
+                    {
+                        // Utillaje: base y dos apoyos simples.
+                        graphics.FillRectangle(fixture, 4, 19, 22, 8);
+                        graphics.FillRectangle(fixtureTop, 3, 16, 24, 5);
+                        graphics.FillRectangle(fixture, 5, 13, 5, 5);
+                        graphics.FillRectangle(fixture, 20, 13, 5, 5);
+                        graphics.DrawRectangle(outline, 4, 19, 22, 8);
+
+                        // Pieza: una forma limpia y diferenciada sobre el utillaje.
+                        graphics.FillRectangle(part, 10, 7, 10, 9);
+                        graphics.DrawRectangle(outline, 10, 7, 10, 9);
+                        graphics.DrawLine(outline, 10, 7, 14, 4);
+                        graphics.DrawLine(outline, 20, 7, 16, 4);
+                        graphics.DrawLine(outline, 14, 4, 16, 4);
+
+                        // Acción de crear/añadir.
+                        graphics.DrawLine(plus, 26, 3, 26, 12);
+                        graphics.DrawLine(plus, 21.5F, 7.5F, 30.5F, 7.5F);
+                    }
                     IntPtr handle = bitmap.GetHicon();
                     try { return (Icon)Icon.FromHandle(handle).Clone(); }
                     finally { DeleteObject(handle); }
