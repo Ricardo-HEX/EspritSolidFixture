@@ -218,7 +218,7 @@ namespace EspritSolidFixture
                     {
                         // Base gris isométrica.
                         Point[] baseTop = { new Point(2, 21), new Point(8, 16), new Point(26, 16), new Point(20, 21) };
-                        Point[] baseFront = { new Point(2, 21), new Point(20, 21), new Point(20, 28), new Point(2, 23) };
+                        Point[] baseFront = { new Point(2, 21), new Point(20, 21), new Point(20, 28), new Point(2, 28) };
                         Point[] baseSide = { new Point(20, 21), new Point(26, 16), new Point(26, 23), new Point(20, 28) };
                         graphics.FillPolygon(fixtureTop, baseTop);
                         graphics.FillPolygon(fixture, baseFront);
@@ -229,7 +229,7 @@ namespace EspritSolidFixture
 
                         // Cubo azul, centrado y con la misma perspectiva que la base.
                         Point[] blueTop = { new Point(7, 10), new Point(12, 6), new Point(23, 6), new Point(18, 10) };
-                        Point[] blueFront = { new Point(7, 10), new Point(18, 10), new Point(18, 19), new Point(7, 15) };
+                        Point[] blueFront = { new Point(7, 10), new Point(18, 10), new Point(18, 19), new Point(7, 19) };
                         Point[] blueSide = { new Point(18, 10), new Point(23, 6), new Point(23, 15), new Point(18, 19) };
                         graphics.FillPolygon(partTop, blueTop);
                         graphics.FillPolygon(part, blueFront);
