@@ -1242,45 +1242,69 @@ namespace EspritSolidFixture
 
         private static Bitmap CreateStockModeIcon(StockMode mode)
         {
-            var bitmap = new Bitmap(28, 24);
+            var bitmap = new Bitmap(30, 26);
             using (Graphics graphics = Graphics.FromImage(bitmap))
-            using (var gray = new SolidBrush(Color.FromArgb(170, 176, 180)))
-            using (var dark = new Pen(Color.FromArgb(105, 113, 119), 1.2F))
+            using (var front = new SolidBrush(Color.FromArgb(178, 183, 186)))
+            using (var top = new SolidBrush(Color.FromArgb(220, 223, 224)))
+            using (var side = new SolidBrush(Color.FromArgb(137, 145, 150)))
+            using (var dark = new Pen(Color.FromArgb(112, 119, 123), 0.9F))
             using (var yellow = new SolidBrush(Color.FromArgb(239, 196, 67)))
             {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 if (mode == StockMode.Esprit)
                 {
-                    graphics.FillRectangle(gray, 5, 6, 17, 14);
-                    graphics.DrawRectangle(dark, 5, 6, 17, 14);
-                    graphics.DrawLine(dark, 5, 6, 10, 2);
-                    graphics.DrawLine(dark, 22, 6, 17, 2);
-                    graphics.DrawLine(dark, 10, 2, 17, 2);
+                    DrawNativeCube(graphics, dark, top, front, side, 5, 4, 16, 16);
                 }
                 else if (mode == StockMode.Solid)
                 {
-                    graphics.FillRectangle(gray, 3, 10, 10, 10);
-                    graphics.FillRectangle(gray, 15, 10, 10, 10);
-                    graphics.FillRectangle(gray, 9, 2, 10, 10);
-                    graphics.DrawRectangle(dark, 3, 10, 10, 10);
-                    graphics.DrawRectangle(dark, 15, 10, 10, 10);
-                    graphics.DrawRectangle(dark, 9, 2, 10, 10);
+                    // Tres cubos isométricos como el comando Sólido nativo.
+                    DrawNativeCube(graphics, dark, top, front, side, 3, 12, 9, 9);
+                    DrawNativeCube(graphics, dark, top, front, side, 16, 12, 9, 9);
+                    DrawNativeCube(graphics, dark, top, front, side, 10, 3, 9, 9);
                 }
                 else
                 {
-                    graphics.FillRectangle(yellow, 3, 7, 22, 14);
-                    graphics.FillRectangle(yellow, 5, 3, 9, 6);
-                    graphics.DrawRectangle(dark, 3, 7, 22, 14);
-                    graphics.DrawLine(dark, 5, 3, 14, 3);
-                    graphics.DrawLine(dark, 14, 3, 17, 7);
+                    graphics.FillRectangle(yellow, 4, 11, 22, 11);
+                    graphics.FillRectangle(yellow, 6, 8, 9, 5);
+                    graphics.DrawRectangle(dark, 4, 11, 22, 11);
+                    graphics.DrawLine(dark, 6, 8, 15, 8);
+                    graphics.DrawLine(dark, 15, 8, 18, 11);
+                    DrawNativeCube(graphics, dark, top, front, side, 10, 2, 10, 10);
                 }
                 using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2F))
                 {
-                    graphics.DrawLine(plus, 23, 15, 23, 23);
-                    graphics.DrawLine(plus, 19, 19, 27, 19);
+                    graphics.DrawLine(plus, 25, 16, 25, 24);
+                    graphics.DrawLine(plus, 21, 20, 29, 20);
                 }
             }
             return bitmap;
+        }
+
+        private static void DrawNativeCube(Graphics graphics, Pen outline, Brush top, Brush front,
+            Brush side, int x, int y, int width, int height)
+        {
+            int depth = Math.Max(2, width / 4);
+            var topFace = new[]
+            {
+                new Point(x, y + depth), new Point(x + depth, y),
+                new Point(x + width, y), new Point(x + width - depth, y + depth)
+            };
+            var frontFace = new[]
+            {
+                new Point(x, y + depth), new Point(x + width - depth, y + depth),
+                new Point(x + width - depth, y + height), new Point(x, y + height - depth)
+            };
+            var sideFace = new[]
+            {
+                new Point(x + width - depth, y + depth), new Point(x + width, y),
+                new Point(x + width, y + height - depth), new Point(x + width - depth, y + height)
+            };
+            graphics.FillPolygon(top, topFace);
+            graphics.FillPolygon(front, frontFace);
+            graphics.FillPolygon(side, sideFace);
+            graphics.DrawPolygon(outline, topFace);
+            graphics.DrawPolygon(outline, frontFace);
+            graphics.DrawPolygon(outline, sideFace);
         }
 
         private static Label Section(string text) => new Label

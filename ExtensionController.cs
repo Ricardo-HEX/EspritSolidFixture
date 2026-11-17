@@ -207,29 +207,32 @@ namespace EspritSolidFixture
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (var fixture = new SolidBrush(Color.FromArgb(75, 105, 125)))
-                    using (var fixtureTop = new SolidBrush(Color.FromArgb(120, 145, 160)))
-                    using (var part = new SolidBrush(Color.FromArgb(66, 174, 210)))
-                    using (var outline = new Pen(Color.FromArgb(45, 68, 82), 1.2F))
+                    using (var fixture = new SolidBrush(Color.FromArgb(70, 92, 108)))
+                    using (var fixtureTop = new SolidBrush(Color.FromArgb(119, 139, 151)))
+                    using (var part = new SolidBrush(Color.FromArgb(75, 174, 207)))
+                    using (var partTop = new SolidBrush(Color.FromArgb(132, 210, 229)))
+                    using (var outline = new Pen(Color.FromArgb(52, 71, 82), 1F))
                     using (var plus = new Pen(Color.FromArgb(67, 161, 45), 2.4F))
                     {
-                        // Utillaje: base y dos apoyos simples.
-                        graphics.FillRectangle(fixture, 4, 19, 22, 8);
-                        graphics.FillRectangle(fixtureTop, 3, 16, 24, 5);
-                        graphics.FillRectangle(fixture, 5, 13, 5, 5);
-                        graphics.FillRectangle(fixture, 20, 13, 5, 5);
-                        graphics.DrawRectangle(outline, 4, 19, 22, 8);
+                        // Silueta sencilla de mordaza con una pieza azul entre las garras.
+                        graphics.FillPolygon(fixtureTop, new[] { new Point(3, 20), new Point(7, 17), new Point(26, 17), new Point(22, 20) });
+                        graphics.FillPolygon(fixture, new[] { new Point(3, 20), new Point(22, 20), new Point(22, 27), new Point(3, 27) });
+                        graphics.FillRectangle(fixture, 5, 12, 5, 7);
+                        graphics.FillRectangle(fixture, 20, 12, 5, 7);
+                        graphics.DrawRectangle(outline, 3, 20, 19, 7);
+                        graphics.DrawRectangle(outline, 5, 12, 5, 7);
+                        graphics.DrawRectangle(outline, 20, 12, 5, 7);
 
-                        // Pieza: una forma limpia y diferenciada sobre el utillaje.
-                        graphics.FillRectangle(part, 10, 7, 10, 9);
-                        graphics.DrawRectangle(outline, 10, 7, 10, 9);
-                        graphics.DrawLine(outline, 10, 7, 14, 4);
-                        graphics.DrawLine(outline, 20, 7, 16, 4);
-                        graphics.DrawLine(outline, 14, 4, 16, 4);
+                        graphics.FillPolygon(partTop, new[] { new Point(10, 10), new Point(13, 7), new Point(20, 7), new Point(17, 10) });
+                        graphics.FillRectangle(part, 10, 10, 7, 8);
+                        graphics.DrawRectangle(outline, 10, 10, 7, 8);
+                        graphics.DrawLine(outline, 10, 10, 13, 7);
+                        graphics.DrawLine(outline, 13, 7, 20, 7);
+                        graphics.DrawLine(outline, 20, 7, 17, 10);
 
                         // Acción de crear/añadir.
-                        graphics.DrawLine(plus, 26, 3, 26, 12);
-                        graphics.DrawLine(plus, 21.5F, 7.5F, 30.5F, 7.5F);
+                        graphics.DrawLine(plus, 27, 2, 27, 11);
+                        graphics.DrawLine(plus, 22.5F, 6.5F, 31, 6.5F);
                     }
                     IntPtr handle = bitmap.GetHicon();
                     try { return (Icon)Icon.FromHandle(handle).Clone(); }
