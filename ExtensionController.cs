@@ -153,9 +153,27 @@ namespace EspritSolidFixture
             if (_app.Document == null) return;
             if (_dialog != null && !_dialog.IsDisposed)
             {
-                _dialog.BringToFront();
-                _dialog.Activate();
-                return;
+                if (_dialog.Visible)
+                {
+                    _dialog.BringToFront();
+                    _dialog.Activate();
+                    return;
+                }
+
+                bool partSetupEditing = false;
+                try
+                {
+                    partSetupEditing = ((Esprit.Document)_app.Document).PartSetup.IsEditing;
+                }
+                catch { }
+                if (partSetupEditing) return;
+
+                // Una instancia oculta fuera de Configuración de la pieza es
+                // un formulario residual de un montaje ya finalizado o abortado.
+                _dialog.FormClosed -= DialogOnFormClosed;
+                try { _dialog.Close(); } catch { }
+                _dialog.Dispose();
+                _dialog = null;
             }
 
             _dialog = new FixturePreparationDialog(_app);

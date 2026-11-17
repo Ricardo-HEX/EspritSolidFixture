@@ -1000,7 +1000,9 @@ namespace EspritSolidFixture
                 return;
             }
             DialogResult = DialogResult.OK;
-            Close();
+            // El montaje puede finalizar desde un Tick. Se difiere el cierre
+            // hasta salir del evento para que WinForms destruya bien la ventana.
+            BeginInvoke(new Action(Close));
         }
 
         private void BeginNativeStockDefinition(PendingMount pending)
