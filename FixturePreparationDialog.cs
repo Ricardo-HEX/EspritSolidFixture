@@ -23,8 +23,7 @@ namespace EspritSolidFixture
         private readonly ListBox _partBox;
         private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
-        private readonly RadioButton _stockBlock;
-        private readonly RadioButton _stockBar;
+        private readonly RadioButton _stockEsprit;
         private readonly RadioButton _stockSolid;
         private readonly RadioButton _stockFile;
         private readonly Panel _stockContext;
@@ -110,21 +109,19 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Top,
                 Height = 66,
-                ColumnCount = 4,
+                ColumnCount = 3,
                 Margin = new Padding(0, 0, 0, 5),
                 BackColor = Color.White
             };
-            for (int index = 0; index < 4; index++)
-                stockChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-            _stockBlock = StockChoice("Bloque", StockMode.Block);
-            _stockBar = StockChoice("Barra", StockMode.Bar);
+            for (int index = 0; index < 3; index++)
+                stockChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            _stockEsprit = StockChoice("Desde ESPRIT", StockMode.Esprit);
             _stockSolid = StockChoice("Sólido", StockMode.Solid);
             _stockFile = StockChoice("Desde archivo", StockMode.File);
             _stockSolid.Checked = true;
-            stockChoices.Controls.Add(_stockBlock, 0, 0);
-            stockChoices.Controls.Add(_stockBar, 1, 0);
-            stockChoices.Controls.Add(_stockSolid, 2, 0);
-            stockChoices.Controls.Add(_stockFile, 3, 0);
+            stockChoices.Controls.Add(_stockEsprit, 0, 0);
+            stockChoices.Controls.Add(_stockSolid, 1, 0);
+            stockChoices.Controls.Add(_stockFile, 2, 0);
             layout.Controls.Add(stockChoices);
 
             _stockContext = new Panel
@@ -399,7 +396,7 @@ namespace EspritSolidFixture
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(mode == StockMode.Block ? 0 : 4, 0,
+                Margin = new Padding(mode == StockMode.Esprit ? 0 : 4, 0,
                     mode == StockMode.File ? 0 : 4, 0),
                 Cursor = Cursors.Hand
             };
@@ -439,12 +436,9 @@ namespace EspritSolidFixture
             _stockFileText.Visible = file;
             _stockBrowse.Visible = file;
 
-            if (_stockMode == StockMode.Block)
+            if (_stockMode == StockMode.Esprit)
                 _stockGuidance.Text =
-                    "Al aceptar, defina longitud, anchura, altura y márgenes en Material en bloque.";
-            else if (_stockMode == StockMode.Bar)
-                _stockGuidance.Text =
-                    "Al aceptar, defina diámetros, longitud y margen en Material de barra.";
+                    "Al aceptar, cree el bruto que necesite en Configuración de la pieza.";
             else if (file)
                 _stockFileText.Text = string.IsNullOrWhiteSpace(_stockFilePath)
                     ? "Ningún archivo STL seleccionado"
@@ -853,7 +847,7 @@ namespace EspritSolidFixture
 
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool stockReady = _stockMode == StockMode.Block || _stockMode == StockMode.Bar ||
+            bool stockReady = _stockMode == StockMode.Esprit ||
                               (_stockMode == StockMode.Solid && _stock != null) ||
                               (_stockMode == StockMode.File && File.Exists(_stockFilePath));
             bool definePartAndStock = _part != null && stockReady;
@@ -912,7 +906,7 @@ namespace EspritSolidFixture
             _activeSelectionRole = null;
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool stockReady = _stockMode == StockMode.Block || _stockMode == StockMode.Bar ||
+            bool stockReady = _stockMode == StockMode.Esprit ||
                               (_stockMode == StockMode.Solid && _stock != null) ||
                               (_stockMode == StockMode.File && File.Exists(_stockFilePath));
             bool definePartAndStock = _part != null && stockReady;
@@ -970,7 +964,7 @@ namespace EspritSolidFixture
                 else
                 {
                     pending.WorkpieceKey = assembler.ConfigurePartOnly(_part.Solid);
-                    BeginNativeStockDefinition(pending, _stockMode);
+                    BeginNativeStockDefinition(pending);
                     return;
                 }
             }
@@ -1003,32 +997,14 @@ namespace EspritSolidFixture
             Close();
         }
 
-        private void BeginNativeStockDefinition(PendingMount pending, StockMode mode)
+        private void BeginNativeStockDefinition(PendingMount pending)
         {
             Hide();
-            Exception subcommandError = null;
-            System.Threading.Timer commandTimer = null;
             try
             {
-                string commandKey = mode == StockMode.Block
-                    ? "PartSetup.AddStockBlock"
-                    : "PartSetup.AddStockBar";
-                var ribbon = (ESPRIT.NetApi.Ribbon.IRibbon)_app.Ribbon;
-                var items = ribbon.FindRibbonItems(commandKey);
-                if (items == null || items.Count == 0)
-                    throw new InvalidOperationException(
-                        "No se encontró el comando nativo " + commandKey + ".");
-                int commandId = items[0].CommandId;
-
-                // Setup.Part bloquea este hilo hasta que el usuario acepta o
-                // cancela. El subcomando se envía desde otro hilo COM cuando la
-                // pestaña ya ha terminado de abrirse.
-                commandTimer = new System.Threading.Timer(_ =>
-                {
-                    try { _app.RunCommand(commandId); }
-                    catch (Exception ex) { subcommandError = ex; }
-                }, null, 900, System.Threading.Timeout.Infinite);
-
+                // El cliente elige libremente Bloque, Barra, Sólido o Archivo
+                // dentro del editor nativo. RunCommand devuelve el control al
+                // aceptar o cancelar la configuración de pieza.
                 _app.RunCommand("Setup.Part");
                 Esprit.Document document = (Esprit.Document)_app.Document;
                 bool stockCreated = document.Workpieces.Count > 0 &&
@@ -1037,9 +1013,8 @@ namespace EspritSolidFixture
                 {
                     Show();
                     Activate();
-                    _hint.Text = subcommandError == null
-                        ? "La definición del bruto se canceló. Puede intentarlo de nuevo."
-                        : "No se pudo abrir el editor nativo: " + subcommandError.Message;
+                    _hint.Text =
+                        "No se creó ningún bruto en ESPRIT. Puede intentarlo de nuevo.";
                     return;
                 }
                 CompleteMount(pending);
@@ -1054,10 +1029,6 @@ namespace EspritSolidFixture
                 Show();
                 Activate();
                 ShowStageError("abrir o completar la definición del bruto", ex);
-            }
-            finally
-            {
-                commandTimer?.Dispose();
             }
         }
 
@@ -1209,22 +1180,18 @@ namespace EspritSolidFixture
             using (var yellow = new SolidBrush(Color.FromArgb(239, 196, 67)))
             {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                if (mode == StockMode.Block)
+                if (mode == StockMode.Esprit)
                 {
                     graphics.FillRectangle(gray, 5, 6, 17, 14);
                     graphics.DrawRectangle(dark, 5, 6, 17, 14);
                     graphics.DrawLine(dark, 5, 6, 10, 2);
                     graphics.DrawLine(dark, 22, 6, 17, 2);
                     graphics.DrawLine(dark, 10, 2, 17, 2);
-                }
-                else if (mode == StockMode.Bar)
-                {
-                    graphics.FillRectangle(gray, 6, 5, 16, 14);
-                    graphics.FillEllipse(gray, 6, 1, 16, 8);
-                    graphics.DrawEllipse(dark, 6, 1, 16, 8);
-                    graphics.DrawLine(dark, 6, 5, 6, 19);
-                    graphics.DrawLine(dark, 22, 5, 22, 19);
-                    graphics.DrawArc(dark, 6, 15, 16, 8, 0, 180);
+                    using (var plus = new Pen(Color.FromArgb(75, 155, 45), 2F))
+                    {
+                        graphics.DrawLine(plus, 22, 14, 22, 23);
+                        graphics.DrawLine(plus, 18, 18.5F, 26, 18.5F);
+                    }
                 }
                 else if (mode == StockMode.Solid)
                 {
@@ -1427,8 +1394,7 @@ namespace EspritSolidFixture
 
         private enum StockMode
         {
-            Block,
-            Bar,
+            Esprit,
             Solid,
             File
         }
