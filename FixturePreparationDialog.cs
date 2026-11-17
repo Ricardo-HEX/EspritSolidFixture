@@ -159,25 +159,42 @@ namespace EspritSolidFixture
                 BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(8, 0, 4, 0),
+                Padding = new Padding(8, 0, 34, 0),
                 AutoEllipsis = true
             };
             _stockBrowse = new Button
             {
-                Text = "Examinar…",
-                Dock = DockStyle.Right,
-                Width = 116,
+                Image = CreateFileBrowseIcon(),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(26, 26),
+                Location = new Point(0, 1),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 Cursor = Cursors.Hand,
-                Margin = new Padding(6, 0, 0, 0)
+                TabStop = true,
+                AccessibleName = "Seleccionar archivo STL"
             };
-            _stockBrowse.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            _stockBrowse.FlatAppearance.BorderSize = 0;
+            _stockBrowse.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 239, 167);
+            _stockBrowse.FlatAppearance.MouseDownBackColor = Color.FromArgb(255, 224, 102);
             _stockBrowse.Click += BrowseStockFile;
+            _stockBrowse.Enter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            _stockBrowse.Leave += (s, e) => ShowNativeSelectionButtonBorder((Button)s, false);
+            _stockBrowse.MouseEnter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            _stockBrowse.MouseLeave += (s, e) =>
+            {
+                var button = (Button)s;
+                if (!button.Focused) ShowNativeSelectionButtonBorder(button, false);
+            };
+            _toolTip.SetToolTip(_stockBrowse, "Seleccionar un archivo STL");
+            _stockContext.Resize += (s, e) =>
+                _stockBrowse.Location = new Point(
+                    Math.Max(0, _stockContext.ClientSize.Width - _stockBrowse.Width - 3), 1);
             _stockContext.Controls.Add(_stockGuidance);
             _stockContext.Controls.Add(_stockSolidRow);
-            _stockContext.Controls.Add(_stockBrowse);
             _stockContext.Controls.Add(_stockFileText);
+            _stockContext.Controls.Add(_stockBrowse);
             layout.Controls.Add(_stockContext);
 
             layout.Controls.Add(Section("Utillajes"));
@@ -471,8 +488,8 @@ namespace EspritSolidFixture
             if (solid) _stockSolidRow.BringToFront();
             else if (file)
             {
-                _stockBrowse.BringToFront();
                 _stockFileText.BringToFront();
+                _stockBrowse.BringToFront();
             }
             else _stockGuidance.BringToFront();
         }
@@ -1245,6 +1262,30 @@ namespace EspritSolidFixture
                 };
                 graphics.FillPolygon(fill, cursor);
                 graphics.DrawPolygon(outline, cursor);
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateFileBrowseIcon()
+        {
+            var bitmap = new Bitmap(18, 18);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var page = new SolidBrush(Color.FromArgb(116, 125, 131)))
+            using (var fold = new SolidBrush(Color.FromArgb(212, 217, 220)))
+            using (var cursor = new SolidBrush(Color.FromArgb(42, 49, 54)))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.FillRectangle(page, 2, 2, 11, 13);
+                graphics.FillPolygon(fold, new[]
+                {
+                    new Point(9, 2), new Point(13, 6), new Point(9, 6)
+                });
+                graphics.FillPolygon(cursor, new[]
+                {
+                    new Point(10, 8), new Point(17, 13), new Point(14, 14),
+                    new Point(16, 17), new Point(14, 18), new Point(12, 15),
+                    new Point(10, 17)
+                });
             }
             return bitmap;
         }
