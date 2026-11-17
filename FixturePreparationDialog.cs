@@ -184,7 +184,9 @@ namespace EspritSolidFixture
             _fixtureBox = new ListBox
             {
                 Dock = DockStyle.Top,
-                Height = 175,
+                // Altura fija: al superar el espacio visible, ListBox muestra
+                // su barra vertical sin hacer crecer la ventana.
+                Height = 150,
                 BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 SelectionMode = SelectionMode.MultiExtended,
@@ -229,6 +231,18 @@ namespace EspritSolidFixture
                 "Crea un único GDML con todos los sólidos seleccionados.");
             layout.Controls.Add(_combine);
 
+            _hint = new Label
+            {
+                Text = "Recuadro: selección por ventana   •   Flecha: selección de sólido",
+                Dock = DockStyle.Top,
+                Height = 40,
+                ForeColor = Color.FromArgb(78, 86, 92),
+                BackColor = Color.FromArgb(246, 248, 249),
+                Padding = new Padding(10, 8, 8, 6),
+                Margin = new Padding(0, 0, 0, 4)
+            };
+            layout.Controls.Add(_hint);
+
             layout.Controls.Add(Section("Cara de montaje"));
             var mountingChoices = new TableLayoutPanel
             {
@@ -263,7 +277,7 @@ namespace EspritSolidFixture
             };
             destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            _destinationCurrent = MountingChoice("Configuración actual\r\nUsar el montaje activo", true);
+            _destinationCurrent = MountingChoice("Configuración principal\r\nMontar en la primera fase", true);
             _destinationNew = MountingChoice("Nueva configuración\r\nCrear la siguiente fase", false);
             _destinationCurrent.Margin = new Padding(0, 0, 6, 0);
             _destinationNew.Margin = new Padding(6, 0, 0, 0);
@@ -274,18 +288,6 @@ namespace EspritSolidFixture
             layout.Controls.Add(destinationChoices);
             StyleMountingChoice(_destinationCurrent);
             StyleMountingChoice(_destinationNew);
-
-            _hint = new Label
-            {
-                Text = "Recuadro: selección por ventana   •   Flecha: selección de sólido",
-                Dock = DockStyle.Top,
-                Height = 40,
-                ForeColor = Color.FromArgb(78, 86, 92),
-                BackColor = Color.FromArgb(246, 248, 249),
-                Padding = new Padding(10, 8, 8, 6),
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            layout.Controls.Add(_hint);
 
             var bottom = new FlowLayoutPanel
             {
@@ -1350,7 +1352,7 @@ namespace EspritSolidFixture
         {
             Text = text,
             Dock = DockStyle.Top,
-            Height = 24,
+            Height = 22,
             BackColor = HeaderGray,
             ForeColor = Color.Black,
             TextAlign = ContentAlignment.MiddleLeft,
@@ -1423,6 +1425,11 @@ namespace EspritSolidFixture
 
         private static void StyleMountingChoice(RadioButton choice)
         {
+            const string checkPrefix = "✓  ";
+            string baseText = choice.Text.StartsWith(checkPrefix, StringComparison.Ordinal)
+                ? choice.Text.Substring(checkPrefix.Length)
+                : choice.Text;
+            choice.Text = choice.Checked ? checkPrefix + baseText : baseText;
             choice.BackColor = choice.Checked
                 ? Color.FromArgb(225, 242, 250)
                 : Color.White;
