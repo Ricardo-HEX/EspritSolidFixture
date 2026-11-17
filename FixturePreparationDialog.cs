@@ -134,8 +134,10 @@ namespace EspritSolidFixture
             _stockContext = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 42,
-                Margin = new Padding(0, 0, 0, 2),
+                // Igual que las filas de Pieza y Utillajes. La altura anterior
+                // recortaba el borde inferior del cuadro de selección.
+                Height = 46,
+                Margin = new Padding(3, 0, 3, 3),
                 BackColor = Color.White,
                 Padding = new Padding(0)
             };
@@ -411,8 +413,13 @@ namespace EspritSolidFixture
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(mode == StockMode.Esprit ? 0 : 4, 0,
-                    mode == StockMode.File ? 0 : 4, 0),
+                // Los tres botones pierden exactamente 4 px de ancho total.
+                // Así quedan iguales y los dos espacios interiores miden 6 px.
+                Margin = mode == StockMode.Esprit
+                    ? new Padding(0, 0, 4, 0)
+                    : mode == StockMode.Solid
+                        ? new Padding(2, 0, 2, 0)
+                        : new Padding(4, 0, 0, 0),
                 Cursor = Cursors.Hand
             };
             choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
