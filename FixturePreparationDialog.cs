@@ -55,6 +55,7 @@ namespace EspritSolidFixture
         private readonly Timer _nativeStockTimer;
         private bool _nativeStockWasEditing;
         private bool _nativeStockCommandSent;
+        private int _nativeStockReadyTicks;
         private StockMode _pendingNativeStockMode;
         private PendingMount _pendingMount;
         private bool _initializing = true;
@@ -1016,6 +1017,7 @@ namespace EspritSolidFixture
             _pendingMount = pending;
             _nativeStockWasEditing = false;
             _nativeStockCommandSent = false;
+            _nativeStockReadyTicks = 0;
             _pendingNativeStockMode = mode;
             Hide();
             try
@@ -1057,11 +1059,24 @@ namespace EspritSolidFixture
                     _nativeStockWasEditing = true;
                     if (!_nativeStockCommandSent)
                     {
-                        _nativeStockCommandSent = true;
                         string command = _pendingNativeStockMode == StockMode.Block
                             ? "PartSetup.AddStockBlock"
                             : "PartSetup.AddStockBar";
+                        var ribbon = (ESPRIT.NetApi.Ribbon.IRibbon)_app.Ribbon;
+                        var items = ribbon.FindRibbonItems(command);
+                        if (items == null || items.Count == 0 || !items[0].Enabled)
+                        {
+                            _nativeStockReadyTicks = 0;
+                            return;
+                        }
+
+                        // Se esperan dos ciclos con el botón habilitado. IsEditing
+                        // pasa a true antes de que la pestaña termine de inicializarse.
+                        _nativeStockReadyTicks++;
+                        if (_nativeStockReadyTicks < 2) return;
+
                         _app.RunCommand(command);
+                        _nativeStockCommandSent = true;
                     }
                     return;
                 }
