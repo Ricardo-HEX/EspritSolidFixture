@@ -177,7 +177,6 @@ namespace EspritSolidFixture
             _stockContext.Controls.Add(_stockBrowse);
             _stockContext.Controls.Add(_stockFileText);
             layout.Controls.Add(_stockContext);
-            UpdateStockModeUi();
 
             layout.Controls.Add(Section("Utillajes"));
             _fixtureBox = new ListBox
@@ -971,15 +970,14 @@ namespace EspritSolidFixture
                 Esprit.Document document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
                 if (reusePreviousPart)
-                    pending.WorkpieceKey = assembler.GetExistingWorkpieceKey();
+                    assembler.ValidateExistingWorkpiece();
                 else if (_stockMode == StockMode.Solid)
-                    pending.WorkpieceKey = assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
+                    assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
                 else if (_stockMode == StockMode.File)
-                    pending.WorkpieceKey = assembler.ConfigurePartAndFileStock(
-                        _part.Solid, _stockFilePath);
+                    assembler.ConfigurePartAndFileStock(_part.Solid, _stockFilePath);
                 else
                 {
-                    pending.WorkpieceKey = assembler.ConfigurePartOnly(_part.Solid);
+                    assembler.ConfigurePartOnly(_part.Solid);
                     BeginNativeStockDefinition(pending);
                     return;
                 }
@@ -1000,7 +998,7 @@ namespace EspritSolidFixture
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
                 assembler.MountFixturesAndWorkpiece(
-                    pending.Paths, pending.WorkpieceKey, pending.CreateNewConfiguration,
+                    pending.Paths, pending.CreateNewConfiguration,
                     pending.RotateAssembly, pending.MountingStackHeight,
                     pending.WorkOffsetBaseZ);
             }
@@ -1467,7 +1465,6 @@ namespace EspritSolidFixture
         private sealed class PendingMount
         {
             public IReadOnlyList<string> Paths { get; set; }
-            public string WorkpieceKey { get; set; }
             public bool CreateNewConfiguration { get; set; }
             public bool RotateAssembly { get; set; }
             public double MountingStackHeight { get; set; }

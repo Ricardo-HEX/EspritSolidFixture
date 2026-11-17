@@ -4,13 +4,13 @@ Extensión para ESPRIT EDGE 2026.2 destinada a convertir sólidos CAD de utillaj
 
 El botón grande **Preparación de utillaje** se integra en la pestaña **Inicio**, junto a los comandos de configuración. Antes de abrir la ventana comprueba que el documento tenga una máquina cargada. Si no existe, pregunta si el usuario desea seleccionar una; al aceptar abre un selector en la carpeta de máquinas configurada por el cliente, carga el archivo `.mprj` y continúa automáticamente. Con una máquina válida activa la vista de pieza y abre una ventana flotante no modal.
 
-La ventana sigue la identidad visual de ESPRIT y permite seleccionar un sólido de **Pieza**, un sólido de **Bruto** y uno o varios sólidos de **Utillaje**. Al pulsar cualquiera de los recuadros se activa la selección gráfica nativa de ESPRIT: el usuario puede hacer clic en sólidos individuales o arrastrar directamente una ventana de selección. La extensión escucha los cambios del grupo, actualiza automáticamente el recuadro activo y descarta caras, aristas u otros objetos. Las selecciones por ventana son acumulativas: nunca eliminan los sólidos guardados anteriormente. Un sólido solo se retira al volver a seleccionarlo, con `Supr` o mediante **Eliminar**. Pieza y bruto toman un único sólido; utillajes admite todos los sólidos seleccionados. Incluye fase, carpeta de salida y botones **Aceptar** y **Cancelar**.
+La ventana sigue la identidad visual de ESPRIT y permite seleccionar un sólido de **Pieza** y uno o varios sólidos de **Utillaje**. El bruto dispone de tres modos: definirlo libremente en la configuración nativa de ESPRIT, elegir un sólido del documento o importar un archivo STL. Al pulsar un recuadro se activa la selección por ventana; la flecha lateral activa la captura individual limitada a sólidos. Las selecciones son acumulativas y un sólido se retira al volver a seleccionarlo, con `Supr` o mediante **Eliminar**.
 
-Al aceptar, la extensión actualiza la primera pieza de trabajo de **Configuración de pieza**: sustituye la geometría de la pieza por el sólido seleccionado y sustituye los materiales existentes por un material de tipo **Sólido** vinculado al bruto elegido. Después genera los GDML y crea el montaje en árbol. Cuando los utillajes no se combinan, los ordena por su cota Z mínima respecto al plano de trabajo: monta el más bajo sobre la máquina, cada accesorio siguiente sobre el anterior y la pieza sobre el último. Cuando se combinan, monta la pieza sobre el único accesorio generado.
+Al aceptar, la extensión actualiza la primera pieza de trabajo y aplica el bruto elegido. En modo **Desde ESPRIT** abre la configuración de pieza, deja que el usuario cree el material con las herramientas nativas y reanuda el proceso al cerrar ese editor. Después genera los GDML y crea el montaje en árbol. Cuando los utillajes no se combinan, los ordena por su cota Z mínima: monta el más bajo sobre la máquina, cada accesorio siguiente sobre el anterior y la pieza sobre el último. Cuando se combinan, monta la pieza sobre el único accesorio generado.
 
 La ventana se posiciona automáticamente en la esquina superior izquierda de ESPRIT, debajo de la cinta, y utiliza una cabecera con icono, acento verde y tipografía coherentes con ESPRIT EDGE.
 
-El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva configuración. Al elegir **Nueva configuración**, la extensión establece automáticamente Fase 2 y **Cara superior / Giro Y 180° + Z 180°**; al elegir la fase 2 también selecciona el mismo destino. En Fase 2 se pueden dejar vacíos los recuadros de pieza y bruto para reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado de la configuración anterior y crea el nuevo árbol.
+El selector **Destino del montaje** permite trabajar en la configuración actual o crear una nueva. En una configuración nueva se selecciona automáticamente **Cara superior / Giro Y 180° + Z 180°** y se puede reutilizar la pieza de trabajo y el material resultante de la fase anterior. La nueva configuración conserva la máquina, elimina el montaje copiado y crea el nuevo árbol.
 
 Al crear una configuración adicional, el número de fase se obtiene del mayor recuento entre `MachineSetupChanges` y `MachineSetupSequences`, más uno. Por ejemplo, con una única configuración la siguiente es Fase 2; si ya existen Configuración 1 y Configuración 2, la siguiente es Fase 3. La extensión revisa también los ceros de trabajo de todas las configuraciones y asigna el primero libre desde G54. El desplazamiento incremental conserva X=0 e Y=0 y utiliza como Z la coordenada absoluta de la base de los accesorios: Z mínima en montaje normal y Z máxima original cuando el montaje está girado.
 
@@ -26,8 +26,8 @@ accesorio `FA_1` se sitúa a la altura superior, mientras que el adaptador de pi
 original del conjunto tras normalizar el origen.
 
 El botón **Combinar sólidos** permite crear un único GDML con toda la selección. En
-ese modo, el origen se sitúa en el centro de la base del sólido más bajo y `FA_1`
-en el centro superior del sólido que alcanza la mayor altura.
+ese modo, la referencia Z se sitúa en la base del sólido más bajo y `FA_1`
+en la cota superior del sólido que alcanza la mayor altura.
 
 El selector **Cara de montaje** permite elegir la cara inferior (Z normal) o la cara
 superior. Los GDML conservan siempre la geometría original. En montaje superior la

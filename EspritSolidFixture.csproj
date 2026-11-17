@@ -43,6 +43,5 @@
     <None Update="EspritSolidFixture.Tooltips.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <EmbeddedResource Include="Resources\Fixture.png" />
   </ItemGroup>
 </Project>

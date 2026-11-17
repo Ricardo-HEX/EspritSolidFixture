@@ -30,61 +30,32 @@ namespace EspritSolidFixture
             }
         }
 
-        public string ConfigurePartAndStock(Esprit.Solid partSolid, Esprit.Solid stockSolid)
+        public void ConfigurePartAndStock(Esprit.Solid partSolid, Esprit.Solid stockSolid)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
             if (stockSolid == null) throw new ArgumentNullException(nameof(stockSolid));
-
-            Esprit.PartSetup setup = _document.PartSetup;
-            setup.BeginEdit();
-            try
+            ConfigurePartCore(partSolid, workpiece =>
             {
-                Esprit.Workpiece workpiece = _document.Workpieces.Count > 0
-                    ? _document.Workpieces[1]
-                    : _document.Workpieces.Add();
-                if (string.IsNullOrWhiteSpace(workpiece.Name)) workpiece.Name = "Pieza1";
-
-                Esprit.Part part = workpiece.Parts.Count > 0
-                    ? workpiece.Parts[1]
-                    : workpiece.Parts.Add();
-                if (string.IsNullOrWhiteSpace(part.Name)) part.Name = "Pieza1";
-
-                for (int index = part.Geometry.Count; index > 0; index--)
-                    part.Geometry.Remove(index);
-                part.Geometry.Add(partSolid);
-
-                for (int index = workpiece.Stocks.Count; index > 0; index--)
-                    workpiece.Stocks.Remove(index);
-
                 Esprit.SolidStock stock = workpiece.Stocks.AddSolidStock();
                 stock.Name = "Material1";
                 stock.Tolerance = 0.1;
                 stock.Solid = (EspritSolids.SolidBody)stockSolid.SolidBody;
-
-                string workpieceKey = workpiece.Key;
-                setup.EndEdit();
-                return workpieceKey;
-            }
-            catch
-            {
-                try { setup.CancelEdit(); } catch { }
-                throw;
-            }
+            });
         }
 
-        public string ConfigurePartOnly(Esprit.Solid partSolid)
+        public void ConfigurePartOnly(Esprit.Solid partSolid)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
-            return ConfigurePartCore(partSolid, null);
+            ConfigurePartCore(partSolid, null);
         }
 
-        public string ConfigurePartAndFileStock(Esprit.Solid partSolid, string fileName)
+        public void ConfigurePartAndFileStock(Esprit.Solid partSolid, string fileName)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
             if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
                 throw new FileNotFoundException("No se encontró el archivo de bruto seleccionado.", fileName);
 
-            return ConfigurePartCore(partSolid, workpiece =>
+            ConfigurePartCore(partSolid, workpiece =>
             {
                 Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
                 stock.Name = "Material1";
@@ -92,7 +63,7 @@ namespace EspritSolidFixture
             });
         }
 
-        private string ConfigurePartCore(Esprit.Solid partSolid, Action<Esprit.Workpiece> addStock)
+        private void ConfigurePartCore(Esprit.Solid partSolid, Action<Esprit.Workpiece> addStock)
         {
             Esprit.PartSetup setup = _document.PartSetup;
             setup.BeginEdit();
@@ -115,9 +86,7 @@ namespace EspritSolidFixture
                     workpiece.Stocks.Remove(index);
                 addStock?.Invoke(workpiece);
 
-                string workpieceKey = workpiece.Key;
                 setup.EndEdit();
-                return workpieceKey;
             }
             catch
             {
@@ -126,7 +95,7 @@ namespace EspritSolidFixture
             }
         }
 
-        public string GetExistingWorkpieceKey()
+        public void ValidateExistingWorkpiece()
         {
             if (_document.Workpieces.Count == 0)
                 throw new InvalidOperationException(
@@ -136,20 +105,16 @@ namespace EspritSolidFixture
             if (workpiece.Parts.Count == 0)
                 throw new InvalidOperationException(
                     "La pieza de trabajo existente no tiene una pieza definida.");
-            return workpiece.Key;
         }
 
-        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths, string workpieceKey,
+        public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths,
             bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
             double workOffsetBaseZ)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
-            if (string.IsNullOrWhiteSpace(workpieceKey))
-                throw new ArgumentException("La pieza de trabajo no tiene una clave válida.", nameof(workpieceKey));
-
             // EndEdit invalida algunos wrappers COM cuando la pieza se crea desde cero.
-            // Se obtiene una referencia nueva por clave justo antes de editar la máquina.
+            // Se obtiene una referencia nueva justo antes de editar la máquina.
             Esprit.Workpiece workpiece = _document.Workpieces[1];
             if (workpiece == null)
                 throw new InvalidOperationException("No se pudo recuperar la pieza de trabajo configurada.");

@@ -26,7 +26,7 @@ namespace EspritSolidFixture
             {
                 if (combine && sourceSolids.Count > 1)
                 {
-                    var items = sourceSolids.Select(solid => new SolidBounds(solid, GetBounds(solid))).ToList();
+                    var items = sourceSolids.Select(solid => new SolidBounds(GetBounds(solid))).ToList();
                     SolidBounds lowest = items.OrderBy(x => x.Bounds.MinZ).First();
                     SolidBounds highest = items.OrderByDescending(x => x.Bounds.MaxZ).First();
                     string cadName = GetCadName(sourceSolids[0]);
@@ -78,26 +78,16 @@ namespace EspritSolidFixture
         private static Bounds GetBounds(Esprit.Solid solid)
         {
             EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
-            double minX = double.PositiveInfinity;
-            double minY = double.PositiveInfinity;
             double minZ = double.PositiveInfinity;
-            double maxX = double.NegativeInfinity;
-            double maxY = double.NegativeInfinity;
             double maxZ = double.NegativeInfinity;
             int vertexCount = 0;
 
             foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
             {
                 EspritGeometryBase.IComPoint point = vertex.Geometry;
-                double x = point.X;
-                double y = point.Y;
                 double z = point.Z;
 
-                minX = Math.Min(minX, x);
-                minY = Math.Min(minY, y);
                 minZ = Math.Min(minZ, z);
-                maxX = Math.Max(maxX, x);
-                maxY = Math.Max(maxY, y);
                 maxZ = Math.Max(maxZ, z);
                 vertexCount++;
             }
@@ -105,7 +95,7 @@ namespace EspritSolidFixture
             if (vertexCount == 0)
                 throw new InvalidDataException("No se pudieron obtener los vértices del sólido.");
 
-            return new Bounds(minX, minY, minZ, maxX, maxY, maxZ);
+            return new Bounds(minZ, maxZ);
         }
 
         private static void NormalizeFixture(string path, string cadName,
@@ -202,29 +192,23 @@ namespace EspritSolidFixture
 
         private sealed class Bounds
         {
-            public Bounds(double minX, double minY, double minZ, double maxX, double maxY, double maxZ)
+            public Bounds(double minZ, double maxZ)
             {
-                CenterX = (minX + maxX) / 2.0;
-                CenterY = (minY + maxY) / 2.0;
                 MinZ = minZ;
                 MaxZ = maxZ;
             }
 
-            public double CenterX { get; }
-            public double CenterY { get; }
             public double MinZ { get; }
             public double MaxZ { get; }
         }
 
         private sealed class SolidBounds
         {
-            public SolidBounds(Esprit.Solid solid, Bounds bounds)
+            public SolidBounds(Bounds bounds)
             {
-                Solid = solid;
                 Bounds = bounds;
             }
 
-            public Esprit.Solid Solid { get; }
             public Bounds Bounds { get; }
         }
 
