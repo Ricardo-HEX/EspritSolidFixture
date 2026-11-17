@@ -51,6 +51,9 @@ namespace EspritSolidFixture
         private int? _digitizeEventId;
         private StockMode _stockMode = StockMode.Solid;
         private string _stockFilePath;
+        private readonly Timer _partSetupTimer;
+        private bool _partSetupWasEditing;
+        private PendingMount _pendingPartSetupMount;
         private bool _initializing = true;
 
         public FixturePreparationDialog(Esprit.Application app)
@@ -85,6 +88,9 @@ namespace EspritSolidFixture
 
             _selectionRemovalTimer = new Timer { Interval = 180 };
             _selectionRemovalTimer.Tick += SelectionRemovalTimerOnTick;
+
+            _partSetupTimer = new Timer { Interval = 300 };
+            _partSetupTimer.Tick += PartSetupTimerOnTick;
 
             var layout = new TableLayoutPanel
             {
@@ -1004,9 +1010,61 @@ namespace EspritSolidFixture
             {
                 // El cliente elige libremente Bloque, Barra, Sólido o Archivo
                 // dentro del editor nativo. RunCommand devuelve el control al
-                // aceptar o cancelar la configuración de pieza.
+                // iniciar el editor; un temporizador espera a que el usuario salga.
+                _pendingPartSetupMount = pending;
+                _partSetupWasEditing = false;
                 _app.RunCommand("Setup.Part");
+                try
+                {
+                    _partSetupWasEditing =
+                        ((Esprit.Document)_app.Document).PartSetup.IsEditing;
+                }
+                catch { }
+                _partSetupTimer.Start();
+            }
+            catch (Exception ex)
+            {
+                _partSetupTimer.Stop();
+                _pendingPartSetupMount = null;
+                try
+                {
+                    if (_app.Document == null || IsDisposed) return;
+                }
+                catch { return; }
+                Show();
+                Activate();
+                ShowStageError("abrir o completar la definición del bruto", ex);
+            }
+        }
+
+        private void PartSetupTimerOnTick(object sender, EventArgs e)
+        {
+            if (_pendingPartSetupMount == null)
+            {
+                _partSetupTimer.Stop();
+                return;
+            }
+
+            try
+            {
                 Esprit.Document document = (Esprit.Document)_app.Document;
+                if (document == null)
+                {
+                    _partSetupTimer.Stop();
+                    _pendingPartSetupMount = null;
+                    return;
+                }
+
+                if (document.PartSetup.IsEditing)
+                {
+                    _partSetupWasEditing = true;
+                    return;
+                }
+                if (!_partSetupWasEditing) return;
+
+                _partSetupTimer.Stop();
+                PendingMount pending = _pendingPartSetupMount;
+                _pendingPartSetupMount = null;
                 bool stockCreated = document.Workpieces.Count > 0 &&
                                     document.Workpieces[1].Stocks.Count > 0;
                 if (!stockCreated)
@@ -1021,6 +1079,8 @@ namespace EspritSolidFixture
             }
             catch (Exception ex)
             {
+                _partSetupTimer.Stop();
+                _pendingPartSetupMount = null;
                 try
                 {
                     if (_app.Document == null || IsDisposed) return;
@@ -1028,7 +1088,7 @@ namespace EspritSolidFixture
                 catch { return; }
                 Show();
                 Activate();
-                ShowStageError("abrir o completar la definición del bruto", ex);
+                ShowStageError("completar la definición del bruto", ex);
             }
         }
 
@@ -1427,6 +1487,9 @@ namespace EspritSolidFixture
             _selectionRemovalTimer.Stop();
             _selectionRemovalTimer.Tick -= SelectionRemovalTimerOnTick;
             _selectionRemovalTimer.Dispose();
+            _partSetupTimer.Stop();
+            _partSetupTimer.Tick -= PartSetupTimerOnTick;
+            _partSetupTimer.Dispose();
             base.OnFormClosed(e);
         }
 
