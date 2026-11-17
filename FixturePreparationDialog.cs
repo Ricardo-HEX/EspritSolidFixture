@@ -1024,17 +1024,14 @@ namespace EspritSolidFixture
             {
                 // Primero se entra en la configuración de pieza. Los comandos
                 // AddStockBlock/AddStockBar solo son válidos dentro de este modo.
-                _app.RunCommand("Setup.Part");
-                try
-                {
-                    Esprit.Document document = (Esprit.Document)_app.Document;
-                    _nativeStockWasEditing = document.PartSetup.IsEditing;
-                }
-                catch { }
+                // RunCommand es bloqueante: el temporizador debe estar activo
+                // antes de entrar para poder actuar dentro de su bucle modal.
                 _nativeStockTimer.Start();
+                _app.RunCommand("Setup.Part");
             }
             catch (Exception ex)
             {
+                _nativeStockTimer.Stop();
                 _pendingMount = null;
                 Show();
                 Activate();
