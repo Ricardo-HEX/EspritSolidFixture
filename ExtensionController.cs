@@ -217,9 +217,9 @@ namespace EspritSolidFixture
                     using (var plus = new Pen(Color.FromArgb(67, 161, 45), 1.7F))
                     {
                         // Base gris isométrica.
-                        Point[] baseTop = { new Point(2, 21), new Point(7, 17), new Point(25, 17), new Point(20, 21) };
-                        Point[] baseFront = { new Point(2, 21), new Point(20, 21), new Point(20, 28), new Point(2, 25) };
-                        Point[] baseSide = { new Point(20, 21), new Point(25, 17), new Point(25, 24), new Point(20, 28) };
+                        Point[] baseTop = { new Point(2, 21), new Point(8, 16), new Point(26, 16), new Point(20, 21) };
+                        Point[] baseFront = { new Point(2, 21), new Point(20, 21), new Point(20, 28), new Point(2, 23) };
+                        Point[] baseSide = { new Point(20, 21), new Point(26, 16), new Point(26, 23), new Point(20, 28) };
                         graphics.FillPolygon(fixtureTop, baseTop);
                         graphics.FillPolygon(fixture, baseFront);
                         graphics.FillPolygon(fixtureSide, baseSide);
@@ -227,18 +227,16 @@ namespace EspritSolidFixture
                         graphics.DrawPolygon(outline, baseFront);
                         graphics.DrawPolygon(outline, baseSide);
 
-                        // Pieza azul inspirada en el icono nativo de Configuración de la pieza.
-                        Point[] blueTop = { new Point(7, 10), new Point(13, 5), new Point(25, 5), new Point(19, 10) };
-                        Point[] blueFront = { new Point(7, 10), new Point(19, 10), new Point(19, 20), new Point(7, 18) };
-                        Point[] blueSide = { new Point(19, 10), new Point(25, 5), new Point(25, 15), new Point(19, 20) };
+                        // Cubo azul, centrado y con la misma perspectiva que la base.
+                        Point[] blueTop = { new Point(7, 10), new Point(12, 6), new Point(23, 6), new Point(18, 10) };
+                        Point[] blueFront = { new Point(7, 10), new Point(18, 10), new Point(18, 19), new Point(7, 15) };
+                        Point[] blueSide = { new Point(18, 10), new Point(23, 6), new Point(23, 15), new Point(18, 19) };
                         graphics.FillPolygon(partTop, blueTop);
                         graphics.FillPolygon(part, blueFront);
                         graphics.FillPolygon(partSide, blueSide);
                         graphics.DrawPolygon(outline, blueTop);
                         graphics.DrawPolygon(outline, blueFront);
                         graphics.DrawPolygon(outline, blueSide);
-                        graphics.FillRectangle(fixtureSide, 10, 12, 5, 4);
-
                         // Acción de crear/añadir, fina y abajo a la derecha.
                         graphics.DrawLine(plus, 27, 21, 27, 30);
                         graphics.DrawLine(plus, 22.5F, 25.5F, 31, 25.5F);
