@@ -52,12 +52,6 @@ namespace EspritSolidFixture
         private int? _digitizeEventId;
         private StockMode _stockMode = StockMode.Solid;
         private string _stockFilePath;
-        private readonly Timer _nativeStockTimer;
-        private bool _nativeStockWasEditing;
-        private bool _nativeStockCommandSent;
-        private int _nativeStockReadyTicks;
-        private StockMode _pendingNativeStockMode;
-        private PendingMount _pendingMount;
         private bool _initializing = true;
 
         public FixturePreparationDialog(Esprit.Application app)
@@ -92,9 +86,6 @@ namespace EspritSolidFixture
 
             _selectionRemovalTimer = new Timer { Interval = 180 };
             _selectionRemovalTimer.Tick += SelectionRemovalTimerOnTick;
-
-            _nativeStockTimer = new Timer { Interval = 300 };
-            _nativeStockTimer.Tick += NativeStockTimerOnTick;
 
             var layout = new TableLayoutPanel
             {
@@ -1014,89 +1005,47 @@ namespace EspritSolidFixture
 
         private void BeginNativeStockDefinition(PendingMount pending, StockMode mode)
         {
-            _pendingMount = pending;
-            _nativeStockWasEditing = false;
-            _nativeStockCommandSent = false;
-            _nativeStockReadyTicks = 0;
-            _pendingNativeStockMode = mode;
             Hide();
+            Exception subcommandError = null;
+            System.Threading.Timer commandTimer = null;
             try
             {
-                // Primero se entra en la configuración de pieza. Los comandos
-                // AddStockBlock/AddStockBar solo son válidos dentro de este modo.
-                // RunCommand es bloqueante: el temporizador debe estar activo
-                // antes de entrar para poder actuar dentro de su bucle modal.
-                _nativeStockTimer.Start();
-                _app.RunCommand("Setup.Part");
-            }
-            catch (Exception ex)
-            {
-                _nativeStockTimer.Stop();
-                _pendingMount = null;
-                Show();
-                Activate();
-                ShowStageError("abrir la definición nativa del bruto", ex);
-            }
-        }
+                string commandKey = mode == StockMode.Block
+                    ? "PartSetup.AddStockBlock"
+                    : "PartSetup.AddStockBar";
+                var ribbon = (ESPRIT.NetApi.Ribbon.IRibbon)_app.Ribbon;
+                var items = ribbon.FindRibbonItems(commandKey);
+                if (items == null || items.Count == 0)
+                    throw new InvalidOperationException(
+                        "No se encontró el comando nativo " + commandKey + ".");
+                int commandId = items[0].CommandId;
 
-        private void NativeStockTimerOnTick(object sender, EventArgs e)
-        {
-            if (_pendingMount == null)
-            {
-                _nativeStockTimer.Stop();
-                return;
-            }
-
-            try
-            {
-                Esprit.Document document = (Esprit.Document)_app.Document;
-                bool editing = document.PartSetup.IsEditing;
-                if (editing)
+                // Setup.Part bloquea este hilo hasta que el usuario acepta o
+                // cancela. El subcomando se envía desde otro hilo COM cuando la
+                // pestaña ya ha terminado de abrirse.
+                commandTimer = new System.Threading.Timer(_ =>
                 {
-                    _nativeStockWasEditing = true;
-                    if (!_nativeStockCommandSent)
-                    {
-                        string command = _pendingNativeStockMode == StockMode.Block
-                            ? "PartSetup.AddStockBlock"
-                            : "PartSetup.AddStockBar";
-                        var ribbon = (ESPRIT.NetApi.Ribbon.IRibbon)_app.Ribbon;
-                        var items = ribbon.FindRibbonItems(command);
-                        if (items == null || items.Count == 0 || !items[0].Enabled)
-                        {
-                            _nativeStockReadyTicks = 0;
-                            return;
-                        }
+                    try { _app.RunCommand(commandId); }
+                    catch (Exception ex) { subcommandError = ex; }
+                }, null, 900, System.Threading.Timeout.Infinite);
 
-                        // Se esperan dos ciclos con el botón habilitado. IsEditing
-                        // pasa a true antes de que la pestaña termine de inicializarse.
-                        _nativeStockReadyTicks++;
-                        if (_nativeStockReadyTicks < 2) return;
-
-                        _app.RunCommand(items[0].CommandId);
-                        _nativeStockCommandSent = true;
-                    }
-                    return;
-                }
-                if (!_nativeStockWasEditing) return;
-
-                _nativeStockTimer.Stop();
-                PendingMount pending = _pendingMount;
-                _pendingMount = null;
+                _app.RunCommand("Setup.Part");
+                Esprit.Document document = (Esprit.Document)_app.Document;
                 bool stockCreated = document.Workpieces.Count > 0 &&
                                     document.Workpieces[1].Stocks.Count > 0;
                 if (!stockCreated)
                 {
                     Show();
                     Activate();
-                    _hint.Text = "La definición del bruto se canceló. Puede intentarlo de nuevo.";
+                    _hint.Text = subcommandError == null
+                        ? "La definición del bruto se canceló. Puede intentarlo de nuevo."
+                        : "No se pudo abrir el editor nativo: " + subcommandError.Message;
                     return;
                 }
                 CompleteMount(pending);
             }
             catch (Exception ex)
             {
-                _nativeStockTimer.Stop();
-                _pendingMount = null;
                 try
                 {
                     if (_app.Document == null || IsDisposed) return;
@@ -1104,7 +1053,11 @@ namespace EspritSolidFixture
                 catch { return; }
                 Show();
                 Activate();
-                ShowStageError("completar la definición del bruto", ex);
+                ShowStageError("abrir o completar la definición del bruto", ex);
+            }
+            finally
+            {
+                commandTimer?.Dispose();
             }
         }
 
@@ -1508,9 +1461,6 @@ namespace EspritSolidFixture
             _selectionRemovalTimer.Stop();
             _selectionRemovalTimer.Tick -= SelectionRemovalTimerOnTick;
             _selectionRemovalTimer.Dispose();
-            _nativeStockTimer.Stop();
-            _nativeStockTimer.Tick -= NativeStockTimerOnTick;
-            _nativeStockTimer.Dispose();
             base.OnFormClosed(e);
         }
 
