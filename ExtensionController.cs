@@ -203,36 +203,19 @@ namespace EspritSolidFixture
         {
             try
             {
-                string folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                string imagePath = Path.Combine(folder ?? string.Empty,
-                    "Assets", "EspritSolidFixture.Icon.png");
-                if (File.Exists(imagePath))
-                {
-                    try
-                    {
-                        using (var bitmap = new Bitmap(imagePath))
-                        {
-                            IntPtr imageHandle = bitmap.GetHicon();
-                            try { return (Icon)Icon.FromHandle(imageHandle).Clone(); }
-                            finally { DeleteObject(imageHandle); }
-                        }
-                    }
-                    catch { }
-                }
-
-                // Recurso de reserva para instalaciones incompletas.
                 using (var bitmap = new Bitmap(32, 32))
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
                     // Las caras comparten aristas. Sin antialiasing se evita la
                     // línea gris que GDI+ introduce entre polígonos adyacentes.
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                    using (var fixture = new SolidBrush(Color.FromArgb(178, 190, 196)))
-                    using (var fixtureTop = new SolidBrush(Color.FromArgb(211, 219, 223)))
-                    using (var fixtureSide = new SolidBrush(Color.FromArgb(139, 158, 168)))
-                    using (var part = new SolidBrush(Color.FromArgb(116, 187, 219)))
-                    using (var partTop = new SolidBrush(Color.FromArgb(190, 226, 241)))
-                    using (var partSide = new SolidBrush(Color.FromArgb(76, 145, 181)))
+                    using (var fixture = new SolidBrush(Color.FromArgb(188, 197, 202)))
+                    using (var fixtureTop = new SolidBrush(Color.FromArgb(225, 230, 233)))
+                    using (var fixtureSide = new SolidBrush(Color.FromArgb(145, 160, 168)))
+                    using (var part = new SolidBrush(Color.FromArgb(111, 176, 214)))
+                    using (var partTop = new SolidBrush(Color.FromArgb(181, 218, 239)))
+                    using (var partSide = new SolidBrush(Color.FromArgb(64, 127, 169)))
+                    using (var hole = new SolidBrush(Color.FromArgb(67, 94, 116)))
                     using (var plus = new Pen(Color.FromArgb(67, 161, 45), 1.7F))
                     {
                         // Base gris isométrica.
@@ -243,17 +226,25 @@ namespace EspritSolidFixture
                         graphics.FillPolygon(fixture, baseFront);
                         graphics.FillPolygon(fixtureSide, baseSide);
 
-                        // Cubo azul, centrado y con la misma perspectiva que la base.
-                        Point[] blueTop = { new Point(7, 10), new Point(12, 6), new Point(23, 6), new Point(18, 10) };
-                        Point[] blueFront = { new Point(7, 10), new Point(18, 10), new Point(18, 19), new Point(7, 19) };
-                        Point[] blueSide = { new Point(18, 10), new Point(23, 6), new Point(23, 15), new Point(18, 19) };
-                        graphics.FillPolygon(partTop, blueTop);
-                        graphics.FillPolygon(part, blueFront);
-                        graphics.FillPolygon(partSide, blueSide);
+                        // Pieza azul escalonada del logotipo, ajustada a píxeles
+                        // enteros para que ESPRIT no tenga que suavizarla.
+                        Point[] upperTop = { new Point(6, 10), new Point(11, 6), new Point(21, 6), new Point(16, 10) };
+                        Point[] upperFront = { new Point(6, 10), new Point(16, 10), new Point(16, 18), new Point(6, 18) };
+                        Point[] upperSide = { new Point(16, 10), new Point(21, 6), new Point(21, 14), new Point(16, 18) };
+                        Point[] stepTop = { new Point(16, 18), new Point(21, 14), new Point(25, 17), new Point(20, 21) };
+                        Point[] stepFront = { new Point(6, 18), new Point(16, 18), new Point(20, 21), new Point(20, 25), new Point(6, 22) };
+                        Point[] stepSide = { new Point(20, 21), new Point(25, 17), new Point(25, 21), new Point(20, 25) };
+                        graphics.FillPolygon(partTop, upperTop);
+                        graphics.FillPolygon(part, upperFront);
+                        graphics.FillPolygon(partSide, upperSide);
+                        graphics.FillPolygon(partTop, stepTop);
+                        graphics.FillPolygon(part, stepFront);
+                        graphics.FillPolygon(partSide, stepSide);
+                        graphics.FillEllipse(hole, 8, 13, 5, 5);
                         // Acción de crear/añadir, fina y abajo a la derecha.
                         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                        graphics.DrawLine(plus, 27, 21, 27, 30);
-                        graphics.DrawLine(plus, 22.5F, 25.5F, 31, 25.5F);
+                        graphics.DrawLine(plus, 28, 21, 28, 30);
+                        graphics.DrawLine(plus, 24, 25.5F, 31, 25.5F);
                     }
                     IntPtr handle = bitmap.GetHicon();
                     try { return (Icon)Icon.FromHandle(handle).Clone(); }
