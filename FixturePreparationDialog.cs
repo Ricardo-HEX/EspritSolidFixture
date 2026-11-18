@@ -348,6 +348,22 @@ namespace EspritSolidFixture
                 Margin = new Padding(0, 0, 0, 4)
             };
             fixtureSelectionLayout.Controls.Add(_hint);
+
+            var finishFixtureSelection = new Button
+            {
+                Text = "✓  Terminar selección",
+                Dock = DockStyle.Top,
+                Height = 38,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = EspritBlue,
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0, 4, 0, 8),
+                AccessibleName = "Terminar selección de utillajes"
+            };
+            finishFixtureSelection.FlatAppearance.BorderColor = EspritBlue;
+            finishFixtureSelection.Click += FinishFixtureSelection;
+            fixtureSelectionLayout.Controls.Add(finishFixtureSelection);
             _fixtureSelectionPanel.Controls.Add(fixtureSelectionLayout);
             layout.Controls.Add(_fixtureSelectionPanel);
 
@@ -573,23 +589,50 @@ namespace EspritSolidFixture
         private void ToggleFixtureSelection(object sender, EventArgs e)
         {
             bool show = !_fixtureSelectionPanel.Visible;
-            _fixtureSelectionPanel.Visible = show;
-            _fixtureToolbarButton.BackColor = show
-                ? Color.FromArgb(232, 246, 252)
-                : Color.White;
-
             if (show)
             {
+                _fixtureSelectionPanel.Visible = true;
+                _fixtureToolbarButton.BackColor = Color.FromArgb(232, 246, 252);
                 ActivateWindowSelection(SelectionRole.Fixtures);
                 _fixtureSelectionPanel.ScrollControlIntoView(_fixtureBox);
             }
             else
+                FinishFixtureSelection(sender, e);
+        }
+
+        private void FinishFixtureSelection(object sender, EventArgs e)
+        {
+            EndSelectionMode(true);
+            _fixtureSelectionPanel.Visible = false;
+            _fixtureToolbarButton.BackColor = Color.White;
+            RefreshMountingTree();
+        }
+
+        private void EndSelectionMode(bool clearGraphicSelection)
+        {
+            _selectionRemovalTimer.Stop();
+            _pendingRemovalKeys.Clear();
+            _pendingRemovalRole = null;
+            _activeSelectionRole = null;
+            _solidSelectionMode = false;
+
+            try
             {
-                try { DisableSolidDigitizing((Esprit.Document)_app.Document); } catch { }
-                if (_activeSelectionRole == SelectionRole.Fixtures)
-                    _activeSelectionRole = null;
-                RefreshMountingTree();
+                var document = (Esprit.Document)_app.Document;
+                DisableSolidDigitizing(document);
+                if (clearGraphicSelection && document?.Group != null)
+                {
+                    _synchronizingSelection = true;
+                    try { document.Group.Clear(); }
+                    finally { _synchronizingSelection = false; }
+                }
+                document?.Refresh();
             }
+            catch { }
+
+            _partBox.BackColor = SelectionBackground;
+            _stockBox.BackColor = SelectionBackground;
+            _fixtureBox.BackColor = SelectionBackground;
         }
 
         private string BrowseFixtureFile(string title)
@@ -1505,7 +1548,7 @@ namespace EspritSolidFixture
 
         private void AcceptPreparation(object sender, EventArgs e)
         {
-            _activeSelectionRole = null;
+            EndSelectionMode(false);
             string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
             bool hasMounting = _fixtures.Count > 0 ||
                                _mountingElements.Any(x => x.Type == MountingElementType.Accessory);
@@ -1733,6 +1776,7 @@ namespace EspritSolidFixture
 
         private void CancelPreparation(object sender, EventArgs e)
         {
+            EndSelectionMode(true);
             DialogResult = DialogResult.Cancel;
             Close();
         }
@@ -2204,6 +2248,7 @@ namespace EspritSolidFixture
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            EndSelectionMode(true);
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
