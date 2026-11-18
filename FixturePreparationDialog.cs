@@ -27,6 +27,8 @@ namespace EspritSolidFixture
         private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
         private readonly TreeView _mountingTree;
+        private readonly Panel _fixtureSelectionPanel;
+        private readonly Button _fixtureToolbarButton;
         private readonly RadioButton _stockEsprit;
         private readonly RadioButton _stockSolid;
         private readonly RadioButton _stockFile;
@@ -110,7 +112,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                Padding = new Padding(20, 14, 20, 12),
+                Padding = new Padding(20, 14, 20, 20),
                 BackColor = Color.White,
                 AutoScroll = true
             };
@@ -236,6 +238,8 @@ namespace EspritSolidFixture
             };
             mountingToolbar.Controls.Add(TreeActionButton("Accesorio", BrowseAccessory));
             mountingToolbar.Controls.Add(TreeActionButton("Garras", BrowseJaws));
+            _fixtureToolbarButton = TreeActionButton("Utillaje", ToggleFixtureSelection);
+            mountingToolbar.Controls.Add(_fixtureToolbarButton);
             mountingToolbar.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
                 "Subir elemento"));
             mountingToolbar.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
@@ -247,7 +251,7 @@ namespace EspritSolidFixture
             _mountingTree = new TreeView
             {
                 Dock = DockStyle.Top,
-                Height = 150,
+                Height = 126,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
                 HideSelection = false,
@@ -261,13 +265,34 @@ namespace EspritSolidFixture
             _mountingTree.NodeMouseDoubleClick += MountingTreeOnNodeMouseDoubleClick;
             layout.Controls.Add(_mountingTree);
 
-            layout.Controls.Add(Section("Utillajes CAD"));
+            _fixtureSelectionPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Visible = false,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.White
+            };
+            var fixtureSelectionLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.White
+            };
+            fixtureSelectionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fixtureSelectionLayout.Controls.Add(Section("Seleccionar utillajes CAD"));
             _fixtureBox = new ListBox
             {
                 Dock = DockStyle.Top,
                 // Altura fija: al superar el espacio visible, ListBox muestra
                 // su barra vertical sin hacer crecer la ventana.
-                Height = 150,
+                Height = 104,
                 BackColor = SelectionBackground,
                 BorderStyle = BorderStyle.FixedSingle,
                 SelectionMode = SelectionMode.MultiExtended,
@@ -279,7 +304,7 @@ namespace EspritSolidFixture
             var fixtureMenu = new ContextMenuStrip();
             fixtureMenu.Items.Add("Eliminar", CreateDeleteIcon(), RemoveSelectedFixtures);
             _fixtureBox.ContextMenuStrip = fixtureMenu;
-            layout.Controls.Add(SelectionRow(_fixtureBox, SelectionRole.Fixtures));
+            fixtureSelectionLayout.Controls.Add(SelectionRow(_fixtureBox, SelectionRole.Fixtures));
 
             _countLabel = new Label
             {
@@ -291,7 +316,7 @@ namespace EspritSolidFixture
                 Padding = new Padding(0, 5, 2, 0),
                 Margin = new Padding(0, 0, 0, 5)
             };
-            layout.Controls.Add(_countLabel);
+            fixtureSelectionLayout.Controls.Add(_countLabel);
 
             _combine = new CheckBox
             {
@@ -310,7 +335,7 @@ namespace EspritSolidFixture
             _combine.CheckedChanged += (s, e) => StyleCombineButton();
             _toolTip.SetToolTip(_combine,
                 "Crea un único GDML con todos los sólidos seleccionados.");
-            layout.Controls.Add(_combine);
+            fixtureSelectionLayout.Controls.Add(_combine);
 
             _hint = new Label
             {
@@ -322,7 +347,9 @@ namespace EspritSolidFixture
                 Padding = new Padding(10, 8, 8, 6),
                 Margin = new Padding(0, 0, 0, 4)
             };
-            layout.Controls.Add(_hint);
+            fixtureSelectionLayout.Controls.Add(_hint);
+            _fixtureSelectionPanel.Controls.Add(fixtureSelectionLayout);
+            layout.Controls.Add(_fixtureSelectionPanel);
 
             layout.Controls.Add(Section("Cara de montaje"));
             var mountingChoices = new TableLayoutPanel
@@ -383,8 +410,8 @@ namespace EspritSolidFixture
             var bottom = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 62,
-                Padding = new Padding(18, 14, 18, 10),
+                Height = 70,
+                Padding = new Padding(18, 14, 18, 14),
                 FlowDirection = FlowDirection.RightToLeft,
                 BackColor = SystemColors.Control
             };
@@ -538,11 +565,31 @@ namespace EspritSolidFixture
             }
             string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
             if (path == null) return;
-            double? closedPosition = PromptJawClosedPosition();
-            if (!closedPosition.HasValue) return;
             _mountingElements.Add(new MountingElementSpec(
-                MountingElementType.Jaws, path, closedPosition.Value));
+                MountingElementType.Jaws, path));
             RefreshState();
+        }
+
+        private void ToggleFixtureSelection(object sender, EventArgs e)
+        {
+            bool show = !_fixtureSelectionPanel.Visible;
+            _fixtureSelectionPanel.Visible = show;
+            _fixtureToolbarButton.BackColor = show
+                ? Color.FromArgb(232, 246, 252)
+                : Color.White;
+
+            if (show)
+            {
+                ActivateWindowSelection(SelectionRole.Fixtures);
+                _fixtureSelectionPanel.ScrollControlIntoView(_fixtureBox);
+            }
+            else
+            {
+                try { DisableSolidDigitizing((Esprit.Document)_app.Document); } catch { }
+                if (_activeSelectionRole == SelectionRole.Fixtures)
+                    _activeSelectionRole = null;
+                RefreshMountingTree();
+            }
         }
 
         private string BrowseFixtureFile(string title)
@@ -567,59 +614,6 @@ namespace EspritSolidFixture
             {
                 return dialog.ShowDialog(this) == DialogResult.OK
                     ? dialog.FileName
-                    : null;
-            }
-        }
-
-        private double? PromptJawClosedPosition()
-        {
-            using (var dialog = new Form
-            {
-                Text = "Posición de las garras",
-                Font = Font,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                StartPosition = FormStartPosition.CenterParent,
-                ClientSize = new Size(340, 126),
-                MinimizeBox = false,
-                MaximizeBox = false,
-                ShowInTaskbar = false
-            })
-            using (var value = new NumericUpDown
-            {
-                DecimalPlaces = 3,
-                Minimum = -10000,
-                Maximum = 10000,
-                Increment = 1,
-                Dock = DockStyle.Top,
-                Margin = new Padding(12),
-                Height = 28
-            })
-            {
-                var label = new Label
-                {
-                    Text = "Posición cerrada / apertura (mm)",
-                    Dock = DockStyle.Top,
-                    Height = 34,
-                    Padding = new Padding(12, 9, 0, 0)
-                };
-                var buttons = new FlowLayoutPanel
-                {
-                    Dock = DockStyle.Bottom,
-                    Height = 48,
-                    FlowDirection = FlowDirection.RightToLeft,
-                    Padding = new Padding(8)
-                };
-                var accept = new Button { Text = "Aceptar", DialogResult = DialogResult.OK };
-                var cancel = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel };
-                buttons.Controls.Add(accept);
-                buttons.Controls.Add(cancel);
-                dialog.Controls.Add(value);
-                dialog.Controls.Add(label);
-                dialog.Controls.Add(buttons);
-                dialog.AcceptButton = accept;
-                dialog.CancelButton = cancel;
-                return dialog.ShowDialog(this) == DialogResult.OK
-                    ? (double?)value.Value
                     : null;
             }
         }
@@ -1416,7 +1410,7 @@ namespace EspritSolidFixture
             {
                 string label = Path.GetFileNameWithoutExtension(element.FileName);
                 if (element.Type == MountingElementType.Jaws)
-                    label += "  (Garras · " + element.JawOpening.ToString("0.###") + " mm)";
+                    label += "  (Garras)";
                 var node = new TreeNode(label) { Tag = element };
                 parent.Nodes.Add(node);
                 if (element.Type == MountingElementType.Accessory) parent = node;

@@ -8,16 +8,13 @@ namespace EspritSolidFixture
 
     internal sealed class MountingElementSpec
     {
-        public MountingElementSpec(MountingElementType type, string fileName,
-            double jawOpening = 0.0)
+        public MountingElementSpec(MountingElementType type, string fileName)
         {
             Type = type;
             FileName = fileName;
-            JawOpening = jawOpening;
         }
 
         public MountingElementType Type { get; }
         public string FileName { get; }
-        public double JawOpening { get; }
     }
 }

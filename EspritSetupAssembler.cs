@@ -381,7 +381,9 @@ namespace EspritSolidFixture
                             EspritConstants.espMachineItemType.espMachineItemTypeJaw))
                             throw new InvalidOperationException(
                                 "El accesorio seleccionado no admite garras en este punto del montaje.");
-                        mountingItems.AddJaws(element.FileName, element.JawOpening);
+                        // Cero permite que ESPRIT use la posición definida por el
+                        // propio conjunto de garras, sin pedir una apertura manual.
+                        mountingItems.AddJaws(element.FileName, 0.0);
                     }
                 }
                 foreach (string path in paths)
