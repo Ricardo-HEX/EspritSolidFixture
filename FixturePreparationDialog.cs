@@ -158,7 +158,7 @@ namespace EspritSolidFixture
                 // Igual que las filas de Pieza y Utillajes. La altura anterior
                 // recortaba el borde inferior del cuadro de selección.
                 Height = 46,
-                Margin = new Padding(3, 0, 3, 3),
+                Margin = new Padding(0, 0, 0, 3),
                 BackColor = Color.White,
                 Padding = new Padding(0)
             };
@@ -521,7 +521,9 @@ namespace EspritSolidFixture
                 Dock = DockStyle.Top,
                 Height = selectionBox.Height,
                 ColumnCount = 2,
-                Margin = selectionBox.Margin,
+                // Todas las filas siguen la misma retícula que las cabeceras,
+                // botones y árbol; la separación se controla fuera del borde.
+                Margin = new Padding(0),
                 Padding = new Padding(0),
                 BackColor = Color.White
             };
