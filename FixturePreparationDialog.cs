@@ -19,11 +19,14 @@ namespace EspritSolidFixture
 
         private readonly Esprit.Application _app;
         private readonly List<SolidChoice> _fixtures = new List<SolidChoice>();
+        private readonly List<MountingElementSpec> _mountingElements =
+            new List<MountingElementSpec>();
         private SolidChoice _part;
         private SolidChoice _stock;
         private readonly ListBox _partBox;
         private readonly ListBox _stockBox;
         private readonly ListBox _fixtureBox;
+        private readonly TreeView _mountingTree;
         private readonly RadioButton _stockEsprit;
         private readonly RadioButton _stockSolid;
         private readonly RadioButton _stockFile;
@@ -109,7 +112,7 @@ namespace EspritSolidFixture
                 ColumnCount = 1,
                 Padding = new Padding(20, 14, 20, 12),
                 BackColor = Color.White,
-                AutoScroll = false
+                AutoScroll = true
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
@@ -221,7 +224,44 @@ namespace EspritSolidFixture
             _stockContext.Controls.Add(_stockFileRow);
             layout.Controls.Add(_stockContext);
 
-            layout.Controls.Add(Section("Utillajes"));
+            layout.Controls.Add(Section("Árbol de montaje"));
+            var mountingToolbar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 38,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0, 2, 0, 3),
+                BackColor = Color.White
+            };
+            mountingToolbar.Controls.Add(TreeActionButton("Accesorio", BrowseAccessory));
+            mountingToolbar.Controls.Add(TreeActionButton("Garras", BrowseJaws));
+            mountingToolbar.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
+                "Subir elemento"));
+            mountingToolbar.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
+                "Bajar elemento"));
+            mountingToolbar.Controls.Add(TreeIconButton("✕", RemoveMountingElement,
+                "Eliminar elemento"));
+            layout.Controls.Add(mountingToolbar);
+
+            _mountingTree = new TreeView
+            {
+                Dock = DockStyle.Top,
+                Height = 150,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                HideSelection = false,
+                FullRowSelect = true,
+                ShowLines = true,
+                ShowPlusMinus = true,
+                ShowRootLines = true,
+                Margin = new Padding(0, 0, 0, 5),
+                AccessibleName = "Árbol de montaje"
+            };
+            _mountingTree.NodeMouseDoubleClick += MountingTreeOnNodeMouseDoubleClick;
+            layout.Controls.Add(_mountingTree);
+
+            layout.Controls.Add(Section("Utillajes CAD"));
             _fixtureBox = new ListBox
             {
                 Dock = DockStyle.Top,
@@ -449,6 +489,197 @@ namespace EspritSolidFixture
             row.Controls.Add(arrow, 1, 0);
             _selectionButtons[role] = arrow;
             return row;
+        }
+
+        private Button TreeActionButton(string text, EventHandler click)
+        {
+            var button = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                Height = 32,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Margin = new Padding(0, 0, 6, 0)
+            };
+            button.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            button.Click += click;
+            return button;
+        }
+
+        private Button TreeIconButton(string text, EventHandler click, string tooltip)
+        {
+            Button button = TreeActionButton(text, click);
+            button.Width = 34;
+            button.AutoSize = false;
+            button.Margin = new Padding(0, 0, 4, 0);
+            _toolTip.SetToolTip(button, tooltip);
+            return button;
+        }
+
+        private void BrowseAccessory(object sender, EventArgs e)
+        {
+            string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
+            if (path == null) return;
+            _mountingElements.Add(new MountingElementSpec(
+                MountingElementType.Accessory, path));
+            RefreshState();
+        }
+
+        private void BrowseJaws(object sender, EventArgs e)
+        {
+            if (!_mountingElements.Any(x => x.Type == MountingElementType.Accessory))
+            {
+                MessageBox.Show(this,
+                    "Añada primero la mordaza o el accesorio sobre el que se montarán las garras.",
+                    Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
+            if (path == null) return;
+            double? closedPosition = PromptJawClosedPosition();
+            if (!closedPosition.HasValue) return;
+            _mountingElements.Add(new MountingElementSpec(
+                MountingElementType.Jaws, path, closedPosition.Value));
+            RefreshState();
+        }
+
+        private string BrowseFixtureFile(string title)
+        {
+            string folder = string.Empty;
+            try
+            {
+                folder = _app.Configuration.GetFileDirectory(
+                    EspritConstants.espFileType.espFileTypeFixtures);
+            }
+            catch { }
+            using (var dialog = new OpenFileDialog
+            {
+                Title = title,
+                Filter = "Accesorios ESPRIT (*.gdml)|*.gdml|Todos los archivos (*.*)|*.*",
+                InitialDirectory = Directory.Exists(folder) ? folder : string.Empty,
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false,
+                RestoreDirectory = true
+            })
+            {
+                return dialog.ShowDialog(this) == DialogResult.OK
+                    ? dialog.FileName
+                    : null;
+            }
+        }
+
+        private double? PromptJawClosedPosition()
+        {
+            using (var dialog = new Form
+            {
+                Text = "Posición de las garras",
+                Font = Font,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(340, 126),
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false
+            })
+            using (var value = new NumericUpDown
+            {
+                DecimalPlaces = 3,
+                Minimum = -10000,
+                Maximum = 10000,
+                Increment = 1,
+                Dock = DockStyle.Top,
+                Margin = new Padding(12),
+                Height = 28
+            })
+            {
+                var label = new Label
+                {
+                    Text = "Posición cerrada / apertura (mm)",
+                    Dock = DockStyle.Top,
+                    Height = 34,
+                    Padding = new Padding(12, 9, 0, 0)
+                };
+                var buttons = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 48,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    Padding = new Padding(8)
+                };
+                var accept = new Button { Text = "Aceptar", DialogResult = DialogResult.OK };
+                var cancel = new Button { Text = "Cancelar", DialogResult = DialogResult.Cancel };
+                buttons.Controls.Add(accept);
+                buttons.Controls.Add(cancel);
+                dialog.Controls.Add(value);
+                dialog.Controls.Add(label);
+                dialog.Controls.Add(buttons);
+                dialog.AcceptButton = accept;
+                dialog.CancelButton = cancel;
+                return dialog.ShowDialog(this) == DialogResult.OK
+                    ? (double?)value.Value
+                    : null;
+            }
+        }
+
+        private void RemoveMountingElement(object sender, EventArgs e)
+        {
+            if (!(_mountingTree.SelectedNode?.Tag is MountingElementSpec element)) return;
+            int index = _mountingElements.IndexOf(element);
+            if (index < 0) return;
+            _mountingElements.RemoveAt(index);
+            if (element.Type == MountingElementType.Accessory)
+            {
+                while (index < _mountingElements.Count &&
+                       _mountingElements[index].Type == MountingElementType.Jaws)
+                    _mountingElements.RemoveAt(index);
+            }
+            RefreshState();
+        }
+
+        private void MoveMountingElementUp(object sender, EventArgs e) =>
+            MoveMountingElement(-1);
+
+        private void MoveMountingElementDown(object sender, EventArgs e) =>
+            MoveMountingElement(1);
+
+        private void MoveMountingElement(int delta)
+        {
+            if (!(_mountingTree.SelectedNode?.Tag is MountingElementSpec element)) return;
+            int index = _mountingElements.IndexOf(element);
+            int target = index + delta;
+            if (index < 0 || target < 0 || target >= _mountingElements.Count) return;
+            _mountingElements.RemoveAt(index);
+            _mountingElements.Insert(target, element);
+            if (!HasValidMountingOrder())
+            {
+                _mountingElements.RemoveAt(target);
+                _mountingElements.Insert(index, element);
+                return;
+            }
+            RefreshState();
+        }
+
+        private bool HasValidMountingOrder()
+        {
+            bool hasAccessory = false;
+            foreach (MountingElementSpec element in _mountingElements)
+            {
+                if (element.Type == MountingElementType.Accessory)
+                    hasAccessory = true;
+                else if (!hasAccessory)
+                    return false;
+            }
+            return true;
+        }
+
+        private void MountingTreeOnNodeMouseDoubleClick(object sender,
+            TreeNodeMouseClickEventArgs e)
+        {
+            if (e.Node?.Tag as string != "Machine" || !_destinationFile.Checked) return;
+            BrowseNewMachine(sender, EventArgs.Empty);
         }
 
         private RadioButton StockChoice(string text, StockMode mode)
@@ -1128,6 +1359,7 @@ namespace EspritSolidFixture
             _fixtureBox.Items.Clear();
             foreach (SolidChoice fixture in _fixtures) _fixtureBox.Items.Add(fixture);
             _fixtureBox.EndUpdate();
+            RefreshMountingTree();
 
             _countLabel.Text = _fixtures.Count == 1
                 ? "1 sólido seleccionado"
@@ -1136,7 +1368,9 @@ namespace EspritSolidFixture
             if (!_combine.Enabled) _combine.Checked = false;
             StyleCombineButton();
 
-            string folder = DetermineOutputFolder();
+            string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
+            bool hasMounting = _fixtures.Count > 0 ||
+                               _mountingElements.Any(x => x.Type == MountingElementType.Accessory);
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
@@ -1147,7 +1381,7 @@ namespace EspritSolidFixture
             _accept.Enabled = (_destinationFile.Checked
                     ? newFileReady
                     : reusePreviousPart || definePartAndStock) &&
-                _fixtures.Count > 0 && folder != null;
+                hasMounting && folder != null;
 
             if (_destinationFile.Checked && string.IsNullOrWhiteSpace(_newMachinePath))
                 _hint.Text = "Seleccione la máquina que se cargará en el nuevo archivo ESPRIT.";
@@ -1155,6 +1389,65 @@ namespace EspritSolidFixture
                 _hint.Text = "Se reutilizará la pieza actual y el material restante de la última operación.";
             else if (CanReusePreviousPart() && _part == null && _stock == null)
                 _hint.Text = "Se reutilizarán la pieza y el bruto de la fase anterior.";
+        }
+
+        private void RefreshMountingTree()
+        {
+            object selected = _mountingTree.SelectedNode?.Tag;
+            _mountingTree.BeginUpdate();
+            _mountingTree.Nodes.Clear();
+
+            string machineName = "Máquina";
+            string machinePath = _destinationFile.Checked && File.Exists(_newMachinePath)
+                ? _newMachinePath
+                : null;
+            if (string.IsNullOrWhiteSpace(machinePath))
+            {
+                try { machinePath = ((Esprit.Document)_app.Document).InitialMachineSetup.MachineFileName; }
+                catch { }
+            }
+            if (!string.IsNullOrWhiteSpace(machinePath))
+                machineName = Path.GetFileNameWithoutExtension(machinePath);
+
+            var root = new TreeNode(machineName) { Tag = "Machine" };
+            _mountingTree.Nodes.Add(root);
+            TreeNode parent = root;
+            foreach (MountingElementSpec element in _mountingElements)
+            {
+                string label = Path.GetFileNameWithoutExtension(element.FileName);
+                if (element.Type == MountingElementType.Jaws)
+                    label += "  (Garras · " + element.JawOpening.ToString("0.###") + " mm)";
+                var node = new TreeNode(label) { Tag = element };
+                parent.Nodes.Add(node);
+                if (element.Type == MountingElementType.Accessory) parent = node;
+            }
+
+            if (_combine.Checked && _fixtures.Count > 1)
+                parent = parent.Nodes.Add("Utillaje CAD combinado");
+            else
+            {
+                foreach (SolidChoice fixture in _fixtures
+                    .OrderBy(item => GetZBounds(item.Solid).Minimum))
+                    parent = parent.Nodes.Add(fixture.DisplayName);
+            }
+            if (_part != null || HasExistingPart())
+                parent.Nodes.Add(_part?.DisplayName ?? "Pieza existente");
+
+            root.ExpandAll();
+            TreeNode restore = FindNodeByTag(root, selected);
+            _mountingTree.SelectedNode = restore ?? root;
+            _mountingTree.EndUpdate();
+        }
+
+        private static TreeNode FindNodeByTag(TreeNode node, object tag)
+        {
+            if (tag != null && ReferenceEquals(node.Tag, tag)) return node;
+            foreach (TreeNode child in node.Nodes)
+            {
+                TreeNode found = FindNodeByTag(child, tag);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private bool HasExistingPart()
@@ -1219,7 +1512,9 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             _activeSelectionRole = null;
-            string folder = DetermineOutputFolder();
+            string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
+            bool hasMounting = _fixtures.Count > 0 ||
+                               _mountingElements.Any(x => x.Type == MountingElementType.Accessory);
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
@@ -1228,34 +1523,37 @@ namespace EspritSolidFixture
             bool newFileReady = newFile && (_part != null || HasExistingPart()) &&
                                 File.Exists(_newMachinePath) && newEspritPath != null;
             if ((newFile ? !newFileReady : !reusePreviousPart && !definePartAndStock) ||
-                _fixtures.Count == 0 || folder == null)
+                !hasMounting || folder == null)
                 return;
-            IReadOnlyList<string> paths;
-            double mountingStackHeight;
-            double workOffsetBaseZ;
+            IReadOnlyList<string> paths = Array.Empty<string>();
+            double mountingStackHeight = 0.0;
+            double workOffsetBaseZ = 0.0;
             try
             {
-                var document = (Esprit.Document)_app.Document;
-                var exporter = new GdmlFixtureExporter(document);
-                var fixtureBounds = _fixtures
-                    .Select(choice =>
-                    {
-                        var bounds = GetZBounds(choice.Solid);
-                        return (Choice: choice, MinimumZ: bounds.Minimum,
-                            MaximumZ: bounds.Maximum);
-                    })
-                    .OrderBy(item => item.MinimumZ)
-                    .ToList();
-                var orderedFixtures = fixtureBounds.Select(x => x.Choice.Solid).ToList();
-                mountingStackHeight = _combine.Checked && fixtureBounds.Count > 1
-                    ? fixtureBounds.Max(x => x.MaximumZ) - fixtureBounds.Min(x => x.MinimumZ)
-                    : fixtureBounds.Sum(x => x.MaximumZ - x.MinimumZ);
-                workOffsetBaseZ = _mountTop.Checked
-                    ? fixtureBounds.Max(x => x.MaximumZ)
-                    : fixtureBounds.Min(x => x.MinimumZ);
-                paths = exporter.Export(
-                    orderedFixtures, folder, GetAutomaticPhaseNumber(),
-                    _combine.Checked, _mountTop.Checked);
+                if (_fixtures.Count > 0)
+                {
+                    var document = (Esprit.Document)_app.Document;
+                    var exporter = new GdmlFixtureExporter(document);
+                    var fixtureBounds = _fixtures
+                        .Select(choice =>
+                        {
+                            var bounds = GetZBounds(choice.Solid);
+                            return (Choice: choice, MinimumZ: bounds.Minimum,
+                                MaximumZ: bounds.Maximum);
+                        })
+                        .OrderBy(item => item.MinimumZ)
+                        .ToList();
+                    var orderedFixtures = fixtureBounds.Select(x => x.Choice.Solid).ToList();
+                    mountingStackHeight = _combine.Checked && fixtureBounds.Count > 1
+                        ? fixtureBounds.Max(x => x.MaximumZ) - fixtureBounds.Min(x => x.MinimumZ)
+                        : fixtureBounds.Sum(x => x.MaximumZ - x.MinimumZ);
+                    workOffsetBaseZ = _mountTop.Checked
+                        ? fixtureBounds.Max(x => x.MaximumZ)
+                        : fixtureBounds.Min(x => x.MinimumZ);
+                    paths = exporter.Export(
+                        orderedFixtures, folder, GetAutomaticPhaseNumber(),
+                        _combine.Checked, _mountTop.Checked);
+                }
             }
             catch (Exception ex)
             {
@@ -1266,6 +1564,7 @@ namespace EspritSolidFixture
             var pending = new PendingMount
             {
                 Paths = paths,
+                BaseElements = _mountingElements.ToList(),
                 CreateNewConfiguration = _destinationNew.Checked,
                 RotateAssembly = _mountTop.Checked,
                 MountingStackHeight = mountingStackHeight,
@@ -1315,12 +1614,13 @@ namespace EspritSolidFixture
                     assembler.CreateNewPhaseFile(
                         pending.Paths, pending.NewEspritPath, pending.NewMachinePath,
                         pending.SelectedPart, pending.RotateAssembly,
-                        pending.MountingStackHeight, pending.WorkOffsetBaseZ);
+                        pending.MountingStackHeight, pending.WorkOffsetBaseZ,
+                        pending.BaseElements);
                 else
                     assembler.MountFixturesAndWorkpiece(
                         pending.Paths, pending.CreateNewConfiguration,
                         pending.RotateAssembly, pending.MountingStackHeight,
-                        pending.WorkOffsetBaseZ);
+                        pending.WorkOffsetBaseZ, pending.BaseElements);
             }
             catch (Exception ex)
             {
@@ -1898,6 +2198,7 @@ namespace EspritSolidFixture
         private sealed class PendingMount
         {
             public IReadOnlyList<string> Paths { get; set; }
+            public IReadOnlyList<MountingElementSpec> BaseElements { get; set; }
             public bool CreateNewConfiguration { get; set; }
             public bool RotateAssembly { get; set; }
             public double MountingStackHeight { get; set; }

@@ -86,11 +86,14 @@ namespace EspritSolidFixture
 
         public void CreateNewPhaseFile(IEnumerable<string> fixturePaths, string newEspritPath,
             string machinePath, Esprit.Solid selectedPart, bool rotateAssembly,
-            double mountingStackHeight, double workOffsetBaseZ)
+            double mountingStackHeight, double workOffsetBaseZ,
+            IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
-            if (paths.Count == 0)
-                throw new InvalidOperationException("No hay archivos GDML para montar.");
+            var bases = (baseElements ?? Enumerable.Empty<MountingElementSpec>())
+                .Where(item => item != null && File.Exists(item.FileName)).ToList();
+            if (paths.Count == 0 && !bases.Any(x => x.Type == MountingElementType.Accessory))
+                throw new InvalidOperationException("No hay accesorios ni archivos GDML para montar.");
             if (string.IsNullOrWhiteSpace(machinePath) || !File.Exists(machinePath))
                 throw new FileNotFoundException("No se encontró la máquina seleccionada.", machinePath);
             if (string.IsNullOrWhiteSpace(newEspritPath))
@@ -153,7 +156,7 @@ namespace EspritSolidFixture
 
                 step = "crear el nuevo montaje";
                 MountFixturesAndWorkpiece(paths, false, rotateAssembly,
-                    mountingStackHeight, workOffsetBaseZ);
+                    mountingStackHeight, workOffsetBaseZ, bases);
                 step = "guardar el nuevo archivo ESPRIT";
                 _document.Save();
             }
@@ -311,10 +314,13 @@ namespace EspritSolidFixture
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths,
             bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
-            double workOffsetBaseZ)
+            double workOffsetBaseZ, IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
-            if (paths.Count == 0) throw new InvalidOperationException("No hay archivos GDML para montar.");
+            var bases = (baseElements ?? Enumerable.Empty<MountingElementSpec>())
+                .Where(item => item != null && File.Exists(item.FileName)).ToList();
+            if (paths.Count == 0 && !bases.Any(x => x.Type == MountingElementType.Accessory))
+                throw new InvalidOperationException("No hay accesorios ni archivos GDML para montar.");
             // EndEdit invalida algunos wrappers COM cuando la pieza se crea desde cero.
             // Se obtiene una referencia nueva justo antes de editar la máquina.
             Esprit.Workpiece workpiece = _document.Workpieces[1];
@@ -354,6 +360,30 @@ namespace EspritSolidFixture
                 Esprit.MachineItems mountingItems = setup.MachineItems;
                 Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
+                foreach (MountingElementSpec element in bases)
+                {
+                    if (element.Type == MountingElementType.Accessory)
+                    {
+                        step = "cargar el accesorio " + Path.GetFileName(element.FileName);
+                        Esprit.Fixture accessory = mountingItems.AddFixture(element.FileName);
+                        accessory.Name = Path.GetFileNameWithoutExtension(element.FileName);
+                        if (rootFixture == null) rootFixture = accessory;
+                        topFixture = accessory;
+                        mountingItems = accessory.MachineItems;
+                    }
+                    else
+                    {
+                        step = "cargar las garras " + Path.GetFileName(element.FileName);
+                        if (topFixture == null)
+                            throw new InvalidOperationException(
+                                "Las garras necesitan una mordaza o accesorio padre.");
+                        if (!mountingItems.CanAddMachineItem(
+                            EspritConstants.espMachineItemType.espMachineItemTypeJaw))
+                            throw new InvalidOperationException(
+                                "El accesorio seleccionado no admite garras en este punto del montaje.");
+                        mountingItems.AddJaws(element.FileName, element.JawOpening);
+                    }
+                }
                 foreach (string path in paths)
                 {
                     step = "cargar el accesorio " + Path.GetFileName(path);
@@ -374,7 +404,7 @@ namespace EspritSolidFixture
                 }
 
                 step = "crear la instancia de pieza sobre el accesorio";
-                Esprit.WorkpieceInstance instance = topFixture.MachineItems.AddWorkpieceInstance();
+                Esprit.WorkpieceInstance instance = mountingItems.AddWorkpieceInstance();
                 // AddWorkpieceInstance enlaza automáticamente la primera pieza de
                 // trabajo. Reasignar PartWorkpiece después de crearla desde cero
                 // provoca "objeto gráfico no válido" en ESPRIT.
