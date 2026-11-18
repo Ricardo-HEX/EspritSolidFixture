@@ -203,6 +203,24 @@ namespace EspritSolidFixture
         {
             try
             {
+                string folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                string imagePath = Path.Combine(folder ?? string.Empty,
+                    "Assets", "EspritSolidFixture.Icon.png");
+                if (File.Exists(imagePath))
+                {
+                    try
+                    {
+                        using (var bitmap = new Bitmap(imagePath))
+                        {
+                            IntPtr imageHandle = bitmap.GetHicon();
+                            try { return (Icon)Icon.FromHandle(imageHandle).Clone(); }
+                            finally { DeleteObject(imageHandle); }
+                        }
+                    }
+                    catch { }
+                }
+
+                // Recurso de reserva para instalaciones incompletas.
                 using (var bitmap = new Bitmap(32, 32))
                 using (Graphics graphics = Graphics.FromImage(bitmap))
                 {
