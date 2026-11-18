@@ -468,18 +468,35 @@ namespace EspritSolidFixture
             };
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var statusPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 8, 0),
+                BackColor = SystemColors.Control
+            };
+            statusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 26));
+            statusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var statusIcon = new PictureBox
+            {
+                Dock = DockStyle.Fill,
+                Image = CreateStatusInfoIcon(),
+                SizeMode = PictureBoxSizeMode.CenterImage,
+                Margin = new Padding(0)
+            };
             _validationStatus = new Label
             {
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Image = CreateStatusInfoIcon(),
-                ImageAlign = ContentAlignment.MiddleLeft,
                 ForeColor = Color.FromArgb(88, 96, 103),
                 AutoEllipsis = true,
-                Padding = new Padding(24, 0, 0, 0),
-                Margin = new Padding(0, 0, 8, 0),
+                Padding = new Padding(0),
+                Margin = new Padding(0),
                 AccessibleName = "Estado de la preparación"
             };
+            statusPanel.Controls.Add(statusIcon, 0, 0);
+            statusPanel.Controls.Add(_validationStatus, 1, 0);
             var bottomActions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -496,7 +513,7 @@ namespace EspritSolidFixture
             _accept.EnabledChanged += (s, e) => StylePrimaryButton(_accept);
             bottomActions.Controls.Add(_accept);
             bottomActions.Controls.Add(cancel);
-            bottom.Controls.Add(_validationStatus, 0, 0);
+            bottom.Controls.Add(statusPanel, 0, 0);
             bottom.Controls.Add(bottomActions, 1, 0);
 
             Controls.Add(layout);
