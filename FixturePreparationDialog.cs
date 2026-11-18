@@ -463,21 +463,24 @@ namespace EspritSolidFixture
                 Dock = DockStyle.Bottom,
                 Height = 64,
                 ColumnCount = 2,
+                RowCount = 1,
                 Padding = new Padding(18, 12, 18, 10),
                 BackColor = SystemColors.Control
             };
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             var statusPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
                 RowCount = 1,
-                Margin = new Padding(0, 0, 8, 0),
+                Margin = new Padding(0, 0, 8, 4),
                 BackColor = SystemColors.Control
             };
             statusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 26));
             statusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            statusPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             var statusIcon = new PictureBox
             {
                 Dock = DockStyle.Fill,
