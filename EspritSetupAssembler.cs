@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace EspritSolidFixture
 {
@@ -133,8 +134,7 @@ namespace EspritSolidFixture
                 RemoveAllFeatures();
 
                 step = "eliminar las configuraciones adicionales anteriores";
-                for (int index = _document.MachineSetupSequences.Count; index > 0; index--)
-                    _document.MachineSetupSequences.Remove(index);
+                ClearAdditionalMachineSetups();
 
                 step = "vaciar el montaje y cargar la nueva máquina";
                 Esprit.MachineSetup setup = _document.InitialMachineSetup;
@@ -213,6 +213,43 @@ namespace EspritSolidFixture
             RemoveCollectionItems(_document.FeatureChains);
             RemoveCollectionItems(_document.AdditiveFeatures);
             _document.CadFeatures.RemoveAll();
+        }
+
+        private void ClearAdditionalMachineSetups()
+        {
+            for (int index = _document.MachineSetupSequences.Count; index > 0; index--)
+            {
+                Esprit.MachineSetupSequence sequence = _document.MachineSetupSequences[index];
+                try
+                {
+                    // Algunas instalaciones implementan este miembro de la
+                    // typelib y permiten eliminar realmente la secuencia.
+                    _document.MachineSetupSequences.Remove(index);
+                    continue;
+                }
+                catch (COMException)
+                {
+                    // ESPRIT 2026.2 puede exponer Remove pero responder
+                    // "Sub o Function no definida". En ese caso se deja la
+                    // secuencia completamente vacía e inactiva.
+                }
+
+                Esprit.MachineSetup setup = sequence.MachineSetup;
+                setup.BeginEdit();
+                try
+                {
+                    for (int itemIndex = setup.MachineItems.Count;
+                         itemIndex > 0; itemIndex--)
+                        setup.MachineItems.Remove(itemIndex);
+                    setup.EndEdit();
+                }
+                catch
+                {
+                    try { setup.CancelEdit(); } catch { }
+                    throw;
+                }
+                sequence.Enabled = false;
+            }
         }
 
         private static void RemoveCollectionItems(object collection)
