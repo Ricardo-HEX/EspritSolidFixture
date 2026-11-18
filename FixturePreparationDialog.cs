@@ -1390,13 +1390,16 @@ namespace EspritSolidFixture
                     _partSetupWasEditing = true;
                     return;
                 }
-                if (!_partSetupWasEditing) return;
+                bool stockCreated = document.Workpieces.Count > 0 &&
+                                    document.Workpieces[1].Stocks.Count > 0;
+                // ESPRIT puede completar una edición rápida sin que el sondeo
+                // llegue a observar IsEditing=true. La aparición del bruto es
+                // una confirmación suficiente para continuar con el montaje.
+                if (!stockCreated && !_partSetupWasEditing) return;
 
                 _partSetupTimer.Stop();
                 PendingMount pending = _pendingPartSetupMount;
                 _pendingPartSetupMount = null;
-                bool stockCreated = document.Workpieces.Count > 0 &&
-                                    document.Workpieces[1].Stocks.Count > 0;
                 if (!stockCreated)
                 {
                     Show();
