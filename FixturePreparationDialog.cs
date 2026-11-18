@@ -603,13 +603,16 @@ namespace EspritSolidFixture
 
         private static Bitmap CreateSmallAddIcon()
         {
-            var bitmap = new Bitmap(13, 13);
+            // El lienzo es algo más alto y el signo se dibuja dos píxeles por
+            // debajo del centro geométrico para alinearlo con la altura visual
+            // de las letras de Segoe UI.
+            var bitmap = new Bitmap(13, 15);
             using (Graphics graphics = Graphics.FromImage(bitmap))
             using (var pen = new Pen(Color.FromArgb(67, 161, 45), 1.8F))
             {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                graphics.DrawLine(pen, 6, 3, 6, 11);
-                graphics.DrawLine(pen, 2, 7, 10, 7);
+                graphics.DrawLine(pen, 6, 5, 6, 13);
+                graphics.DrawLine(pen, 2, 9, 10, 9);
             }
             return bitmap;
         }
