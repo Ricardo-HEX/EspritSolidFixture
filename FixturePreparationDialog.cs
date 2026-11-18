@@ -566,9 +566,9 @@ namespace EspritSolidFixture
             {
                 Image = CreateFileBrowseIcon(),
                 ImageAlign = ContentAlignment.MiddleCenter,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Anchor = AnchorStyles.None,
                 Size = new Size(26, 26),
-                Margin = new Padding(2, 3, 0, 0),
+                Margin = new Padding(0),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 Cursor = Cursors.Hand,
