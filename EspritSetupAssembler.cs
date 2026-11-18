@@ -118,7 +118,7 @@ namespace EspritSolidFixture
                 string directory = Path.GetDirectoryName(newEspritPath);
                 Directory.CreateDirectory(directory);
                 string stockPath = Path.Combine(directory,
-                    Path.GetFileNameWithoutExtension(newEspritPath) + "_Material_Anterior.stl");
+                    Path.GetFileNameWithoutExtension(newEspritPath) + "_Material_Anterior.wp");
                 ExportRemainingStock(stockPath);
 
                 step = "guardar el documento original";

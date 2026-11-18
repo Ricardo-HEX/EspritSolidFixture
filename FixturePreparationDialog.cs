@@ -47,6 +47,7 @@ namespace EspritSolidFixture
         private readonly Panel _newFilePanel;
         private Label _machinePathText;
         private TextBox _espritFileName;
+        private string _newOutputDirectory;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private readonly Esprit.Group _documentGroup;
         private readonly Timer _selectionRemovalTimer;
@@ -525,6 +526,7 @@ namespace EspritSolidFixture
             };
             fields.Controls.Add(_machinePathText, 1, 0);
             var browseMachine = NativeBrowseButton("Seleccionar máquina para el nuevo archivo");
+            browseMachine.Image = CreateFolderBrowseIcon();
             browseMachine.Click += BrowseNewMachine;
             fields.Controls.Add(browseMachine, 2, 0);
 
@@ -537,15 +539,10 @@ namespace EspritSolidFixture
             };
             _espritFileName.TextChanged += (s, e) => RefreshState();
             fields.Controls.Add(_espritFileName, 1, 1);
-            var extension = new Label
-            {
-                Text = ".esprit",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                ForeColor = Color.FromArgb(78, 86, 92),
-                Margin = new Padding(0)
-            };
-            fields.Controls.Add(extension, 2, 1);
+            var browseOutput = NativeBrowseButton("Cambiar carpeta del nuevo archivo ESPRIT");
+            browseOutput.Image = CreateFolderBrowseIcon();
+            browseOutput.Click += BrowseNewOutputDirectory;
+            fields.Controls.Add(browseOutput, 2, 1);
 
             panel.Controls.Add(fields);
             return panel;
@@ -614,6 +611,24 @@ namespace EspritSolidFixture
                 _newMachinePath = dialog.FileName;
                 _machinePathText.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
                 _toolTip.SetToolTip(_machinePathText, dialog.FileName);
+                RefreshState();
+            }
+        }
+
+        private void BrowseNewOutputDirectory(object sender, EventArgs e)
+        {
+            string initialDirectory = GetNewOutputDirectory();
+            using (var dialog = new FolderBrowserDialog
+            {
+                Description = "Seleccione la carpeta del nuevo archivo ESPRIT",
+                SelectedPath = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
+                ShowNewFolderButton = true
+            })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                _newOutputDirectory = dialog.SelectedPath;
+                _toolTip.SetToolTip(_espritFileName,
+                    Path.Combine(_newOutputDirectory, _espritFileName.Text.Trim() + ".esprit"));
                 RefreshState();
             }
         }
@@ -1025,16 +1040,25 @@ namespace EspritSolidFixture
         private string GetNewEspritPath()
         {
             if (!_destinationFile.Checked || _espritFileName == null) return null;
-            string currentPath;
-            try { currentPath = ((Esprit.Document)_app.Document).FileName; }
-            catch { return null; }
-            string directory = Path.GetDirectoryName(currentPath);
+            string directory = GetNewOutputDirectory();
             if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) return null;
             string name = SanitizeFileName(Path.GetFileNameWithoutExtension(
                 _espritFileName.Text.Trim()));
             return string.IsNullOrWhiteSpace(name)
                 ? null
                 : Path.Combine(directory, name + ".esprit");
+        }
+
+        private string GetNewOutputDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(_newOutputDirectory))
+                return _newOutputDirectory;
+            try
+            {
+                string currentPath = ((Esprit.Document)_app.Document).FileName;
+                return Path.GetDirectoryName(currentPath);
+            }
+            catch { return null; }
         }
 
         private void FixtureBoxOnKeyDown(object sender, KeyEventArgs e)
@@ -1534,6 +1558,39 @@ namespace EspritSolidFixture
                     new Point(10, 8), new Point(17, 13), new Point(14, 14),
                     new Point(16, 17), new Point(14, 18), new Point(12, 15),
                     new Point(10, 17)
+                });
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateFolderBrowseIcon()
+        {
+            var bitmap = new Bitmap(18, 18);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var back = new SolidBrush(Color.FromArgb(224, 167, 38)))
+            using (var front = new SolidBrush(Color.FromArgb(247, 205, 83)))
+            using (var edge = new Pen(Color.FromArgb(177, 128, 27), 1F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.FillPolygon(back, new[]
+                {
+                    new Point(1, 4), new Point(7, 4), new Point(9, 6),
+                    new Point(17, 6), new Point(17, 15), new Point(1, 15)
+                });
+                graphics.DrawPolygon(edge, new[]
+                {
+                    new Point(1, 4), new Point(7, 4), new Point(9, 6),
+                    new Point(17, 6), new Point(17, 15), new Point(1, 15)
+                });
+                graphics.FillPolygon(front, new[]
+                {
+                    new Point(2, 8), new Point(17, 8), new Point(14, 16),
+                    new Point(1, 16)
+                });
+                graphics.DrawPolygon(edge, new[]
+                {
+                    new Point(2, 8), new Point(17, 8), new Point(14, 16),
+                    new Point(1, 16)
                 });
             }
             return bitmap;
