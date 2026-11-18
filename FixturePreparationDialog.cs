@@ -45,6 +45,7 @@ namespace EspritSolidFixture
         private readonly Label _stockFileText;
         private readonly Button _stockBrowse;
         private readonly Button _accept;
+        private readonly Label _validationStatus;
         private readonly Label _hint;
         private readonly Label _countLabel;
         private readonly CheckBox _combine;
@@ -263,11 +264,11 @@ namespace EspritSolidFixture
                 Margin = new Padding(0),
                 BackColor = Color.White
             };
-            editActions.Controls.Add(TreeIconButton("✕", RemoveMountingElement,
+            editActions.Controls.Add(TreeIconButton(CreateRemoveIcon(), RemoveMountingElement,
                 "Eliminar elemento"));
-            editActions.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
+            editActions.Controls.Add(TreeIconButton(CreateMoveIcon(false), MoveMountingElementDown,
                 "Bajar elemento"));
-            editActions.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
+            editActions.Controls.Add(TreeIconButton(CreateMoveIcon(true), MoveMountingElementUp,
                 "Subir elemento"));
             mountingToolbar.Controls.Add(addActions, 0, 0);
             mountingToolbar.Controls.Add(editActions, 1, 0);
@@ -284,6 +285,8 @@ namespace EspritSolidFixture
                 ShowLines = true,
                 ShowPlusMinus = true,
                 ShowRootLines = true,
+                ShowNodeToolTips = true,
+                ImageList = CreateMountingTreeImageList(),
                 Margin = new Padding(0, 0, 0, 5),
                 AccessibleName = "Árbol de montaje"
             };
@@ -455,13 +458,32 @@ namespace EspritSolidFixture
             _newFilePanel.Visible = false;
             layout.Controls.Add(_newFilePanel);
 
-            var bottom = new FlowLayoutPanel
+            var bottom = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 64,
+                ColumnCount = 2,
                 Padding = new Padding(18, 12, 18, 10),
-                FlowDirection = FlowDirection.RightToLeft,
                 BackColor = SystemColors.Control
+            };
+            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _validationStatus = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(88, 96, 103),
+                AutoEllipsis = true,
+                Margin = new Padding(0, 0, 8, 0),
+                AccessibleName = "Estado de la preparación"
+            };
+            var bottomActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                Margin = new Padding(0)
             };
             _accept = ActionButton("Aceptar", AcceptPreparation);
             _accept.Enabled = false;
@@ -469,8 +491,10 @@ namespace EspritSolidFixture
             StylePrimaryButton(_accept);
             StyleSecondaryButton(cancel);
             _accept.EnabledChanged += (s, e) => StylePrimaryButton(_accept);
-            bottom.Controls.Add(_accept);
-            bottom.Controls.Add(cancel);
+            bottomActions.Controls.Add(_accept);
+            bottomActions.Controls.Add(cancel);
+            bottom.Controls.Add(_validationStatus, 0, 0);
+            bottom.Controls.Add(bottomActions, 1, 0);
 
             Controls.Add(layout);
             Controls.Add(bottom);
@@ -616,14 +640,97 @@ namespace EspritSolidFixture
             return bitmap;
         }
 
-        private Button TreeIconButton(string text, EventHandler click, string tooltip)
+        private Button TreeIconButton(Image image, EventHandler click, string tooltip)
         {
-            Button button = TreeActionButton(text, click);
+            Button button = TreeActionButton(string.Empty, click);
             button.Width = 34;
             button.AutoSize = false;
+            button.Image = image;
+            button.ImageAlign = ContentAlignment.MiddleCenter;
             button.Margin = new Padding(0, 0, 4, 0);
             _toolTip.SetToolTip(button, tooltip);
             return button;
+        }
+
+        private static Bitmap CreateMoveIcon(bool upward)
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.FromArgb(39, 72, 92), 1.5F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                int tipY = upward ? 3 : 13;
+                int baseY = upward ? 7 : 9;
+                graphics.DrawLine(pen, 8, upward ? 13 : 3, 8, tipY);
+                graphics.DrawLine(pen, 8, tipY, 4, baseY);
+                graphics.DrawLine(pen, 8, tipY, 12, baseY);
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateRemoveIcon()
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.FromArgb(64, 71, 76), 1.6F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.DrawLine(pen, 4, 4, 12, 12);
+                graphics.DrawLine(pen, 12, 4, 4, 12);
+            }
+            return bitmap;
+        }
+
+        private static ImageList CreateMountingTreeImageList()
+        {
+            var images = new ImageList
+            {
+                ImageSize = new Size(16, 16),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+            images.Images.Add("machine", CreateTreeNodeIcon(Color.FromArgb(108, 168, 199), true));
+            images.Images.Add("accessory", CreateTreeNodeIcon(Color.FromArgb(166, 174, 179), false));
+            images.Images.Add("jaws", CreateJawsTreeIcon());
+            images.Images.Add("fixture", CreateTreeNodeIcon(Color.FromArgb(139, 190, 116), false));
+            images.Images.Add("part", CreateTreeNodeIcon(Color.FromArgb(112, 174, 207), false));
+            return images;
+        }
+
+        private static Bitmap CreateTreeNodeIcon(Color color, bool machine)
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var front = new SolidBrush(color))
+            using (var top = new SolidBrush(ControlPaint.Light(color, 0.35F)))
+            using (var side = new SolidBrush(ControlPaint.Dark(color, 0.15F)))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                Point[] topFace = { new Point(2, 5), new Point(6, 2), new Point(14, 2), new Point(10, 5) };
+                Point[] frontFace = { new Point(2, 5), new Point(10, 5), new Point(10, 13), new Point(2, 13) };
+                Point[] sideFace = { new Point(10, 5), new Point(14, 2), new Point(14, 10), new Point(10, 13) };
+                graphics.FillPolygon(top, topFace);
+                graphics.FillPolygon(front, frontFace);
+                graphics.FillPolygon(side, sideFace);
+                if (machine)
+                {
+                    using (var window = new SolidBrush(Color.FromArgb(225, 242, 250)))
+                        graphics.FillRectangle(window, 4, 7, 4, 3);
+                }
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateJawsTreeIcon()
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var brush = new SolidBrush(Color.FromArgb(143, 151, 156)))
+            {
+                graphics.FillRectangle(brush, 2, 8, 12, 5);
+                graphics.FillRectangle(brush, 2, 3, 4, 6);
+                graphics.FillRectangle(brush, 10, 3, 4, 6);
+            }
+            return bitmap;
         }
 
         private void BrowseAccessory(object sender, EventArgs e)
@@ -664,6 +771,7 @@ namespace EspritSolidFixture
                 SetPostSelectionControlsVisible(false);
                 ActivateWindowSelection(SelectionRole.Fixtures);
                 _fixtureSelectionPanel.ScrollControlIntoView(_fixtureBox);
+                RefreshState();
             }
             else
                 FinishFixtureSelection(sender, e);
@@ -675,7 +783,7 @@ namespace EspritSolidFixture
             _fixtureSelectionPanel.Visible = false;
             _fixtureToolbarButton.BackColor = Color.White;
             SetPostSelectionControlsVisible(true);
-            RefreshMountingTree();
+            RefreshState();
         }
 
         private void PrepareForExtensionCommand()
@@ -1517,10 +1625,30 @@ namespace EspritSolidFixture
                                 (_part != null || HasExistingPart()) &&
                                 File.Exists(_newMachinePath) &&
                                 GetNewEspritPath() != null;
-            _accept.Enabled = (_destinationFile.Checked
+            bool ready = (_destinationFile.Checked
                     ? newFileReady
                     : reusePreviousPart || definePartAndStock) &&
                 hasMounting && folder != null;
+            _accept.Enabled = ready && !_fixtureSelectionPanel.Visible;
+
+            if (_fixtureSelectionPanel.Visible)
+                SetValidationStatus("Termine la selección de utillajes para continuar.", false);
+            else if (!hasMounting)
+                SetValidationStatus("Añada un accesorio o seleccione al menos un utillaje.", false);
+            else if (_destinationFile.Checked && !File.Exists(_newMachinePath))
+                SetValidationStatus("Seleccione la máquina del nuevo archivo ESPRIT.", false);
+            else if (_destinationFile.Checked && !(_part != null || HasExistingPart()))
+                SetValidationStatus("Seleccione la pieza que se utilizará en el nuevo archivo.", false);
+            else if (_destinationFile.Checked && GetNewEspritPath() == null)
+                SetValidationStatus("Indique un nombre y una carpeta válidos para el nuevo archivo.", false);
+            else if (!reusePreviousPart && _part == null)
+                SetValidationStatus("Seleccione el sólido de pieza.", false);
+            else if (!reusePreviousPart && !stockReady)
+                SetValidationStatus("Defina o seleccione el bruto.", false);
+            else if (folder == null)
+                SetValidationStatus("No se pudo determinar la carpeta de accesorios.", false);
+            else
+                SetValidationStatus("Listo para crear el montaje.", true);
 
             if (_destinationFile.Checked && string.IsNullOrWhiteSpace(_newMachinePath))
                 _hint.Text = "Seleccione la máquina que se cargará en el nuevo archivo ESPRIT.";
@@ -1528,6 +1656,15 @@ namespace EspritSolidFixture
                 _hint.Text = "Se reutilizará la pieza actual y el material restante de la última operación.";
             else if (CanReusePreviousPart() && _part == null && _stock == null)
                 _hint.Text = "Se reutilizarán la pieza y el bruto de la fase anterior.";
+        }
+
+        private void SetValidationStatus(string text, bool ready)
+        {
+            _validationStatus.Text = (ready ? "●  " : "○  ") + text;
+            _validationStatus.ForeColor = ready
+                ? Color.FromArgb(63, 132, 46)
+                : Color.FromArgb(88, 96, 103);
+            _toolTip.SetToolTip(_validationStatus, text);
         }
 
         private void RefreshMountingTree()
@@ -1548,7 +1685,13 @@ namespace EspritSolidFixture
             if (!string.IsNullOrWhiteSpace(machinePath))
                 machineName = Path.GetFileNameWithoutExtension(machinePath);
 
-            var root = new TreeNode(machineName) { Tag = "Machine" };
+            var root = new TreeNode(machineName)
+            {
+                Tag = "Machine",
+                ImageKey = "machine",
+                SelectedImageKey = "machine",
+                ToolTipText = string.IsNullOrWhiteSpace(machinePath) ? machineName : machinePath
+            };
             _mountingTree.Nodes.Add(root);
             TreeNode parent = root;
             foreach (MountingElementSpec element in _mountingElements)
@@ -1556,21 +1699,45 @@ namespace EspritSolidFixture
                 string label = Path.GetFileNameWithoutExtension(element.FileName);
                 if (element.Type == MountingElementType.Jaws)
                     label += "  (Garras)";
-                var node = new TreeNode(label) { Tag = element };
+                string imageKey = element.Type == MountingElementType.Jaws
+                    ? "jaws"
+                    : "accessory";
+                var node = new TreeNode(label)
+                {
+                    Tag = element,
+                    ImageKey = imageKey,
+                    SelectedImageKey = imageKey,
+                    ToolTipText = element.FileName
+                };
                 parent.Nodes.Add(node);
                 if (element.Type == MountingElementType.Accessory) parent = node;
             }
 
             if (_combine.Checked && _fixtures.Count > 1)
-                parent = parent.Nodes.Add("Utillaje CAD combinado");
+            {
+                TreeNode combined = parent.Nodes.Add("Utillaje CAD combinado");
+                combined.ImageKey = combined.SelectedImageKey = "fixture";
+                combined.ToolTipText = "Utillaje CAD combinado";
+                parent = combined;
+            }
             else
             {
                 foreach (SolidChoice fixture in _fixtures
                     .OrderBy(item => GetZBounds(item.Solid).Minimum))
-                    parent = parent.Nodes.Add(fixture.DisplayName);
+                {
+                    TreeNode fixtureNode = parent.Nodes.Add(fixture.DisplayName);
+                    fixtureNode.ImageKey = fixtureNode.SelectedImageKey = "fixture";
+                    fixtureNode.ToolTipText = fixture.DisplayName;
+                    parent = fixtureNode;
+                }
             }
             if (_part != null || HasExistingPart())
-                parent.Nodes.Add(_part?.DisplayName ?? "Pieza existente");
+            {
+                string partName = _part?.DisplayName ?? "Pieza existente";
+                TreeNode partNode = parent.Nodes.Add(partName);
+                partNode.ImageKey = partNode.SelectedImageKey = "part";
+                partNode.ToolTipText = partName;
+            }
 
             root.ExpandAll();
             TreeNode restore = FindNodeByTag(root, selected);
