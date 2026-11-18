@@ -240,10 +240,11 @@ namespace EspritSolidFixture
                 Margin = new Padding(0, 2, 0, 3),
                 BackColor = Color.White
             };
-            mountingToolbar.Controls.Add(TreeActionButton("Accesorio", BrowseAccessory));
-            mountingToolbar.Controls.Add(TreeActionButton("Garras", BrowseJaws));
-            _fixtureToolbarButton = TreeActionButton("Utillaje", ToggleFixtureSelection);
+            mountingToolbar.Controls.Add(TreeAddButton("Accesorio", BrowseAccessory));
+            mountingToolbar.Controls.Add(TreeAddButton("Garras", BrowseJaws));
+            _fixtureToolbarButton = TreeAddButton("Utillaje", ToggleFixtureSelection);
             mountingToolbar.Controls.Add(_fixtureToolbarButton);
+            mountingToolbar.Controls.Add(TreeToolbarSeparator());
             mountingToolbar.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
                 "Subir elemento"));
             mountingToolbar.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
@@ -559,10 +560,41 @@ namespace EspritSolidFixture
                 Cursor = Cursors.Hand
             };
             button.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
-            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(235, 246, 251);
-            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(214, 237, 248);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(190, 225, 245);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 207, 237);
             button.Click += click;
             return button;
+        }
+
+        private Button TreeAddButton(string text, EventHandler click)
+        {
+            Button button = TreeActionButton(text, click);
+            button.Image = CreateSmallAddIcon();
+            button.ImageAlign = ContentAlignment.MiddleLeft;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.Padding = new Padding(2, 0, 3, 0);
+            return button;
+        }
+
+        private static Control TreeToolbarSeparator() => new Panel
+        {
+            Width = 1,
+            Height = 26,
+            BackColor = Color.FromArgb(190, 195, 198),
+            Margin = new Padding(2, 3, 7, 0)
+        };
+
+        private static Bitmap CreateSmallAddIcon()
+        {
+            var bitmap = new Bitmap(12, 12);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.FromArgb(67, 161, 45), 1.8F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.DrawLine(pen, 6, 2, 6, 10);
+                graphics.DrawLine(pen, 2, 6, 10, 6);
+            }
+            return bitmap;
         }
 
         private Button TreeIconButton(string text, EventHandler click, string tooltip)
@@ -1323,7 +1355,7 @@ namespace EspritSolidFixture
             if (newFile && string.IsNullOrWhiteSpace(_espritFileName.Text))
                 _espritFileName.Text = GetDefaultEspritFileName(nextPhase);
             _destinationFile.Text = (newFile ? "✓  " : string.Empty) +
-                "Nuevo archivo ESPRIT\r\nCrear Fase " + nextPhase;
+                "Nuevo archivo ESPRIT\r\nCrear la siguiente fase en otro archivo";
             RefreshState();
         }
 
@@ -1524,7 +1556,7 @@ namespace EspritSolidFixture
 
             root.ExpandAll();
             TreeNode restore = FindNodeByTag(root, selected);
-            _mountingTree.SelectedNode = restore ?? root;
+            _mountingTree.SelectedNode = restore;
             _mountingTree.EndUpdate();
         }
 
@@ -2167,7 +2199,8 @@ namespace EspritSolidFixture
             };
             choice.FlatAppearance.BorderSize = 1;
             choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
-            choice.FlatAppearance.MouseOverBackColor = Color.FromArgb(235, 246, 251);
+            choice.FlatAppearance.MouseOverBackColor = Color.FromArgb(190, 225, 245);
+            choice.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 207, 237);
             return choice;
         }
 
