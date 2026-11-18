@@ -590,7 +590,7 @@ namespace EspritSolidFixture
         {
             Button button = TreeActionButton(text, click);
             button.AutoSize = false;
-            button.Width = 92;
+            button.Width = 108;
             button.Image = CreateSmallAddIcon();
             button.ImageAlign = ContentAlignment.MiddleCenter;
             button.TextAlign = ContentAlignment.MiddleCenter;
