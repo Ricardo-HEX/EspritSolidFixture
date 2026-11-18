@@ -63,6 +63,166 @@ namespace EspritSolidFixture
             });
         }
 
+        public void ConfigureExistingPartAndFileStock(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+                throw new FileNotFoundException("No se encontró el material restante exportado.", fileName);
+            if (_document.Workpieces.Count == 0 || _document.Workpieces[1].Parts.Count == 0)
+                throw new InvalidOperationException("El documento no contiene una pieza que se pueda reutilizar.");
+
+            Esprit.PartSetup setup = _document.PartSetup;
+            setup.BeginEdit();
+            try
+            {
+                Esprit.Workpiece workpiece = _document.Workpieces[1];
+                for (int index = workpiece.Stocks.Count; index > 0; index--)
+                    workpiece.Stocks.Remove(index);
+                Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
+                stock.Name = "Material_Fase_Anterior";
+                stock.FileName = fileName;
+                setup.EndEdit();
+            }
+            catch
+            {
+                try { setup.CancelEdit(); } catch { }
+                throw;
+            }
+        }
+
+        public void CreateNewPhaseFile(IEnumerable<string> fixturePaths, string newEspritPath,
+            string machinePath, Esprit.Solid selectedPart, bool rotateAssembly,
+            double mountingStackHeight, double workOffsetBaseZ)
+        {
+            var paths = fixturePaths.Where(File.Exists).ToList();
+            if (paths.Count == 0)
+                throw new InvalidOperationException("No hay archivos GDML para montar.");
+            if (string.IsNullOrWhiteSpace(machinePath) || !File.Exists(machinePath))
+                throw new FileNotFoundException("No se encontró la máquina seleccionada.", machinePath);
+            if (string.IsNullOrWhiteSpace(newEspritPath))
+                throw new ArgumentException("El nombre del nuevo archivo ESPRIT no es válido.", nameof(newEspritPath));
+            string currentPath = _document.FileName;
+            if (string.IsNullOrWhiteSpace(currentPath) || !File.Exists(currentPath))
+                throw new InvalidOperationException(
+                    "Guarde primero el documento ESPRIT actual para poder crear la siguiente fase.");
+            if (string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(newEspritPath),
+                StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("El nuevo archivo debe tener un nombre diferente al actual.");
+            if (File.Exists(newEspritPath))
+                throw new IOException("Ya existe el archivo " + Path.GetFileName(newEspritPath) +
+                                      ". Indique otro nombre.");
+
+            string step = "guardar el material restante";
+            try
+            {
+                string directory = Path.GetDirectoryName(newEspritPath);
+                Directory.CreateDirectory(directory);
+                string stockPath = Path.Combine(directory,
+                    Path.GetFileNameWithoutExtension(newEspritPath) + "_Material_Anterior.stl");
+                ExportRemainingStock(stockPath);
+
+                step = "guardar el documento original";
+                _document.Save();
+                step = "crear el nuevo archivo ESPRIT";
+                _document.SaveAs(newEspritPath);
+
+                step = "eliminar las operaciones de las fases anteriores";
+                for (int index = _document.PartOperations.Count; index > 0; index--)
+                    _document.PartOperations.Remove(index);
+
+                step = "eliminar las características de las fases anteriores";
+                RemoveAllFeatures();
+
+                step = "eliminar las configuraciones adicionales anteriores";
+                for (int index = _document.MachineSetupSequences.Count; index > 0; index--)
+                    _document.MachineSetupSequences.Remove(index);
+
+                step = "vaciar el montaje y cargar la nueva máquina";
+                Esprit.MachineSetup setup = _document.InitialMachineSetup;
+                setup.BeginEdit();
+                try
+                {
+                    for (int index = setup.MachineItems.Count; index > 0; index--)
+                        setup.MachineItems.Remove(index);
+                    setup.MachineFileName = machinePath;
+                    setup.EndEdit();
+                }
+                catch
+                {
+                    try { setup.CancelEdit(); } catch { }
+                    throw;
+                }
+
+                step = "configurar la pieza y el material restante";
+                if (selectedPart != null)
+                    ConfigurePartAndFileStock(selectedPart, stockPath);
+                else
+                    ConfigureExistingPartAndFileStock(stockPath);
+
+                step = "crear el nuevo montaje";
+                MountFixturesAndWorkpiece(paths, false, rotateAssembly,
+                    mountingStackHeight, workOffsetBaseZ);
+                step = "guardar el nuevo archivo ESPRIT";
+                _document.Save();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Error al " + step + ": " + ex.Message, ex);
+            }
+        }
+
+        private void ExportRemainingStock(string targetPath)
+        {
+            if (_document.PartOperations.Count == 0)
+                throw new InvalidOperationException(
+                    "No hay operaciones desde las que calcular el material restante.");
+
+            Esprit.PartOperation lastOperation = _document.PartOperations[
+                _document.PartOperations.Count];
+            Array calculatedStocks;
+            _document.StockAutomation.GetCalculatedStocks(
+                lastOperation, false, out calculatedStocks);
+            if (calculatedStocks == null || calculatedStocks.Length == 0)
+                throw new InvalidOperationException(
+                    "ESPRIT no devolvió material restante para la última operación.");
+
+            string sourcePath = null;
+            double largestVolume = double.NegativeInfinity;
+            foreach (object item in calculatedStocks)
+            {
+                if (!(item is Esprit.CalculatedStockData stock)) continue;
+                if (string.IsNullOrWhiteSpace(stock.FileName) || !File.Exists(stock.FileName)) continue;
+                if (stock.Volume <= largestVolume) continue;
+                largestVolume = stock.Volume;
+                sourcePath = stock.FileName;
+            }
+            if (string.IsNullOrWhiteSpace(sourcePath))
+                throw new FileNotFoundException(
+                    "No se pudo localizar el archivo temporal del material restante generado por ESPRIT.");
+            File.Copy(sourcePath, targetPath, true);
+        }
+
+        private void RemoveAllFeatures()
+        {
+            RemoveCollectionItems(_document.FeatureSets);
+            RemoveCollectionItems(_document.HolesFeatures);
+            RemoveCollectionItems(_document.FreeFormFeatures);
+            RemoveCollectionItems(_document.RuledFeatures);
+            RemoveCollectionItems(_document.DraftConicFeatures);
+            RemoveCollectionItems(_document.TurningFeatureChains);
+            RemoveCollectionItems(_document.FeaturePtops);
+            RemoveCollectionItems(_document.FeatureChains);
+            RemoveCollectionItems(_document.AdditiveFeatures);
+            _document.CadFeatures.RemoveAll();
+        }
+
+        private static void RemoveCollectionItems(object collection)
+        {
+            if (collection == null) return;
+            dynamic items = collection;
+            for (int index = Convert.ToInt32(items.Count); index > 0; index--)
+                items.Remove(index);
+        }
+
         private void ConfigurePartCore(Esprit.Solid partSolid, Action<Esprit.Workpiece> addStock)
         {
             Esprit.PartSetup setup = _document.PartSetup;

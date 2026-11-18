@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace EspritSolidFixture
@@ -26,6 +27,8 @@ namespace EspritSolidFixture
         private readonly RadioButton _stockEsprit;
         private readonly RadioButton _stockSolid;
         private readonly RadioButton _stockFile;
+        private readonly Control _stockSection;
+        private readonly Control _stockChoices;
         private readonly Panel _stockContext;
         private readonly Label _stockGuidance;
         private readonly Control _stockSolidRow;
@@ -40,6 +43,10 @@ namespace EspritSolidFixture
         private readonly RadioButton _mountTop;
         private readonly RadioButton _destinationCurrent;
         private readonly RadioButton _destinationNew;
+        private readonly RadioButton _destinationFile;
+        private readonly Panel _newFilePanel;
+        private Label _machinePathText;
+        private TextBox _espritFileName;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
         private readonly Esprit.Group _documentGroup;
         private readonly Timer _selectionRemovalTimer;
@@ -53,6 +60,7 @@ namespace EspritSolidFixture
         private int? _digitizeEventId;
         private StockMode _stockMode = StockMode.Solid;
         private string _stockFilePath;
+        private string _newMachinePath;
         private readonly Timer _partSetupTimer;
         private bool _partSetupWasEditing;
         private PendingMount _pendingPartSetupMount;
@@ -112,7 +120,8 @@ namespace EspritSolidFixture
             _partBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Part);
             layout.Controls.Add(SelectionRow(_partBox, SelectionRole.Part));
 
-            layout.Controls.Add(Section("Tipo de bruto"));
+            _stockSection = Section("Tipo de bruto");
+            layout.Controls.Add(_stockSection);
             var stockChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -130,6 +139,7 @@ namespace EspritSolidFixture
             stockChoices.Controls.Add(_stockEsprit, 0, 0);
             stockChoices.Controls.Add(_stockSolid, 1, 0);
             stockChoices.Controls.Add(_stockFile, 2, 0);
+            _stockChoices = stockChoices;
             layout.Controls.Add(stockChoices);
 
             _stockContext = new Panel
@@ -300,24 +310,34 @@ namespace EspritSolidFixture
             var destinationChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 62,
-                ColumnCount = 2,
+                Height = 72,
+                ColumnCount = 3,
                 Margin = new Padding(0, 0, 0, 8),
                 BackColor = Color.White
             };
-            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.334F));
             _destinationCurrent = MountingChoice("Configuración principal\r\nMontar en la primera fase", true);
             _destinationNew = MountingChoice("Nueva configuración\r\nCrear la siguiente fase", false);
-            _destinationCurrent.Margin = new Padding(0, 0, 6, 0);
-            _destinationNew.Margin = new Padding(6, 0, 0, 0);
+            _destinationFile = MountingChoice("Nuevo archivo ESPRIT\r\nCrear la siguiente fase", false);
+            _destinationCurrent.Margin = new Padding(0, 0, 4, 0);
+            _destinationNew.Margin = new Padding(2, 0, 2, 0);
+            _destinationFile.Margin = new Padding(4, 0, 0, 0);
             _destinationCurrent.CheckedChanged += DestinationOnCheckedChanged;
             _destinationNew.CheckedChanged += DestinationOnCheckedChanged;
+            _destinationFile.CheckedChanged += DestinationOnCheckedChanged;
             destinationChoices.Controls.Add(_destinationCurrent, 0, 0);
             destinationChoices.Controls.Add(_destinationNew, 1, 0);
+            destinationChoices.Controls.Add(_destinationFile, 2, 0);
             layout.Controls.Add(destinationChoices);
             StyleMountingChoice(_destinationCurrent);
             StyleMountingChoice(_destinationNew);
+            StyleMountingChoice(_destinationFile);
+
+            _newFilePanel = CreateNewFilePanel();
+            _newFilePanel.Visible = false;
+            layout.Controls.Add(_newFilePanel);
 
             var bottom = new FlowLayoutPanel
             {
@@ -457,6 +477,145 @@ namespace EspritSolidFixture
             choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             choice.CheckedChanged += StockChoiceOnCheckedChanged;
             return choice;
+        }
+
+        private Panel CreateNewFilePanel()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 96,
+                Margin = new Padding(0, 0, 0, 8),
+                Padding = new Padding(8, 7, 8, 7),
+                BackColor = Color.FromArgb(246, 248, 249)
+            };
+            panel.Controls.Add(new Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 3,
+                BackColor = EspritGreen
+            });
+
+            var fields = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(8, 0, 0, 0),
+                BackColor = Color.Transparent
+            };
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
+            fields.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            fields.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+            fields.Controls.Add(NewFileFieldLabel("Máquina"), 0, 0);
+            _machinePathText = new Label
+            {
+                Text = "Seleccione una máquina .mprj",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Padding = new Padding(7, 0, 4, 0),
+                AutoEllipsis = true,
+                Margin = new Padding(0, 2, 4, 2)
+            };
+            fields.Controls.Add(_machinePathText, 1, 0);
+            var browseMachine = NativeBrowseButton("Seleccionar máquina para el nuevo archivo");
+            browseMachine.Click += BrowseNewMachine;
+            fields.Controls.Add(browseMachine, 2, 0);
+
+            fields.Controls.Add(NewFileFieldLabel("Nombre ESPRIT"), 0, 1);
+            _espritFileName = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(0, 2, 4, 2)
+            };
+            _espritFileName.TextChanged += (s, e) => RefreshState();
+            fields.Controls.Add(_espritFileName, 1, 1);
+            var extension = new Label
+            {
+                Text = ".esprit",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(78, 86, 92),
+                Margin = new Padding(0)
+            };
+            fields.Controls.Add(extension, 2, 1);
+
+            panel.Controls.Add(fields);
+            return panel;
+        }
+
+        private static Label NewFileFieldLabel(string text) => new Label
+        {
+            Text = text,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Margin = new Padding(0)
+        };
+
+        private Button NativeBrowseButton(string tooltip)
+        {
+            var button = new Button
+            {
+                Image = CreateFileBrowseIcon(),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(26, 26),
+                Margin = new Padding(2, 3, 0, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                Cursor = Cursors.Hand,
+                TabStop = true,
+                AccessibleName = tooltip
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 239, 167);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(255, 224, 102);
+            button.Enter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            button.Leave += (s, e) => ShowNativeSelectionButtonBorder((Button)s, false);
+            button.MouseEnter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            button.MouseLeave += (s, e) =>
+            {
+                var hovered = (Button)s;
+                if (!hovered.Focused) ShowNativeSelectionButtonBorder(hovered, false);
+            };
+            _toolTip.SetToolTip(button, tooltip);
+            return button;
+        }
+
+        private void BrowseNewMachine(object sender, EventArgs e)
+        {
+            string machineFolder = string.Empty;
+            try
+            {
+                machineFolder = _app.Configuration.GetFileDirectory(
+                    EspritConstants.espFileType.espFileTypeMachineSetup);
+            }
+            catch { }
+
+            using (var dialog = new OpenFileDialog
+            {
+                Title = "Seleccionar máquina para el nuevo archivo ESPRIT",
+                Filter = "Máquinas ESPRIT (*.mprj)|*.mprj|Todos los archivos (*.*)|*.*",
+                InitialDirectory = Directory.Exists(machineFolder) ? machineFolder : string.Empty,
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false,
+                RestoreDirectory = true
+            })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                _newMachinePath = dialog.FileName;
+                _machinePathText.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
+                _toolTip.SetToolTip(_machinePathText, dialog.FileName);
+                RefreshState();
+            }
         }
 
         private void StockChoiceOnCheckedChanged(object sender, EventArgs e)
@@ -808,10 +967,20 @@ namespace EspritSolidFixture
         {
             StyleMountingChoice(_destinationCurrent);
             StyleMountingChoice(_destinationNew);
-            if (_destinationNew.Checked)
+            StyleMountingChoice(_destinationFile);
+            bool newFile = _destinationFile.Checked;
+            _stockSection.Visible = !newFile;
+            _stockChoices.Visible = !newFile;
+            _stockContext.Visible = !newFile;
+            _newFilePanel.Visible = newFile;
+            if (_destinationNew.Checked || newFile)
             {
                 _mountTop.Checked = true;
             }
+            if (newFile && string.IsNullOrWhiteSpace(_espritFileName.Text))
+                _espritFileName.Text = GetDefaultEspritFileName(GetNextConfigurationNumber());
+            _destinationFile.Text = (newFile ? "✓  " : string.Empty) +
+                "Nuevo archivo ESPRIT\r\nCrear Fase " + GetNextConfigurationNumber();
             RefreshState();
         }
 
@@ -833,9 +1002,39 @@ namespace EspritSolidFixture
 
         private int GetAutomaticPhaseNumber()
         {
-            return _destinationNew.Checked
+            return _destinationNew.Checked || _destinationFile.Checked
                 ? GetNextConfigurationNumber()
                 : 1;
+        }
+
+        private string GetDefaultEspritFileName(int phase)
+        {
+            string baseName = "Pieza";
+            try
+            {
+                string fileName = ((Esprit.Document)_app.Document).FileName;
+                if (!string.IsNullOrWhiteSpace(fileName))
+                    baseName = Path.GetFileNameWithoutExtension(fileName);
+            }
+            catch { }
+            baseName = Regex.Replace(baseName, @"_Fase_\d+$", string.Empty,
+                RegexOptions.IgnoreCase);
+            return SanitizeFileName(baseName) + "_Fase_" + phase;
+        }
+
+        private string GetNewEspritPath()
+        {
+            if (!_destinationFile.Checked || _espritFileName == null) return null;
+            string currentPath;
+            try { currentPath = ((Esprit.Document)_app.Document).FileName; }
+            catch { return null; }
+            string directory = Path.GetDirectoryName(currentPath);
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) return null;
+            string name = SanitizeFileName(Path.GetFileNameWithoutExtension(
+                _espritFileName.Text.Trim()));
+            return string.IsNullOrWhiteSpace(name)
+                ? null
+                : Path.Combine(directory, name + ".esprit");
         }
 
         private void FixtureBoxOnKeyDown(object sender, KeyEventArgs e)
@@ -904,11 +1103,32 @@ namespace EspritSolidFixture
                               (_stockMode == StockMode.Solid && _stock != null) ||
                               (_stockMode == StockMode.File && File.Exists(_stockFilePath));
             bool definePartAndStock = _part != null && stockReady;
-            _accept.Enabled = (reusePreviousPart || definePartAndStock) &&
-                              _fixtures.Count > 0 && folder != null;
+            bool newFileReady = _destinationFile.Checked &&
+                                (_part != null || HasExistingPart()) &&
+                                File.Exists(_newMachinePath) &&
+                                GetNewEspritPath() != null;
+            _accept.Enabled = (_destinationFile.Checked
+                    ? newFileReady
+                    : reusePreviousPart || definePartAndStock) &&
+                _fixtures.Count > 0 && folder != null;
 
-            if (CanReusePreviousPart() && _part == null && _stock == null)
+            if (_destinationFile.Checked && string.IsNullOrWhiteSpace(_newMachinePath))
+                _hint.Text = "Seleccione la máquina que se cargará en el nuevo archivo ESPRIT.";
+            else if (_destinationFile.Checked && _part == null)
+                _hint.Text = "Se reutilizará la pieza actual y el material restante de la última operación.";
+            else if (CanReusePreviousPart() && _part == null && _stock == null)
                 _hint.Text = "Se reutilizarán la pieza y el bruto de la fase anterior.";
+        }
+
+        private bool HasExistingPart()
+        {
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                return document.Workpieces.Count > 0 &&
+                       document.Workpieces[1].Parts.Count > 0;
+            }
+            catch { return false; }
         }
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
@@ -963,7 +1183,11 @@ namespace EspritSolidFixture
                               (_stockMode == StockMode.Solid && _stock != null) ||
                               (_stockMode == StockMode.File && File.Exists(_stockFilePath));
             bool definePartAndStock = _part != null && stockReady;
-            if ((!reusePreviousPart && !definePartAndStock) || _fixtures.Count == 0 || folder == null)
+            bool newFile = _destinationFile.Checked;
+            bool newFileReady = newFile && (_part != null || HasExistingPart()) &&
+                                File.Exists(_newMachinePath) && GetNewEspritPath() != null;
+            if ((newFile ? !newFileReady : !reusePreviousPart && !definePartAndStock) ||
+                _fixtures.Count == 0 || folder == null)
                 return;
             IReadOnlyList<string> paths;
             double mountingStackHeight = 0;
@@ -1000,8 +1224,16 @@ namespace EspritSolidFixture
                 CreateNewConfiguration = _destinationNew.Checked,
                 RotateAssembly = _mountTop.Checked,
                 MountingStackHeight = mountingStackHeight,
-                WorkOffsetBaseZ = workOffsetBaseZ
+                WorkOffsetBaseZ = workOffsetBaseZ,
+                NewEspritPath = newFile ? GetNewEspritPath() : null,
+                NewMachinePath = newFile ? _newMachinePath : null,
+                SelectedPart = newFile ? _part?.Solid : null
             };
+            if (newFile)
+            {
+                CompleteMount(pending);
+                return;
+            }
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
@@ -1034,10 +1266,16 @@ namespace EspritSolidFixture
             {
                 var document = (Esprit.Document)_app.Document;
                 var assembler = new EspritSetupAssembler(document);
-                assembler.MountFixturesAndWorkpiece(
-                    pending.Paths, pending.CreateNewConfiguration,
-                    pending.RotateAssembly, pending.MountingStackHeight,
-                    pending.WorkOffsetBaseZ);
+                if (!string.IsNullOrWhiteSpace(pending.NewEspritPath))
+                    assembler.CreateNewPhaseFile(
+                        pending.Paths, pending.NewEspritPath, pending.NewMachinePath,
+                        pending.SelectedPart, pending.RotateAssembly,
+                        pending.MountingStackHeight, pending.WorkOffsetBaseZ);
+                else
+                    assembler.MountFixturesAndWorkpiece(
+                        pending.Paths, pending.CreateNewConfiguration,
+                        pending.RotateAssembly, pending.MountingStackHeight,
+                        pending.WorkOffsetBaseZ);
             }
             catch (Exception ex)
             {
@@ -1148,7 +1386,7 @@ namespace EspritSolidFixture
 
         private bool CanReusePreviousPart()
         {
-            return _destinationNew.Checked;
+            return _destinationNew.Checked || _destinationFile.Checked;
         }
 
         private void CancelPreparation(object sender, EventArgs e)
@@ -1591,6 +1829,9 @@ namespace EspritSolidFixture
             public bool RotateAssembly { get; set; }
             public double MountingStackHeight { get; set; }
             public double WorkOffsetBaseZ { get; set; }
+            public string NewEspritPath { get; set; }
+            public string NewMachinePath { get; set; }
+            public Esprit.Solid SelectedPart { get; set; }
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
