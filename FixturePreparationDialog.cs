@@ -472,8 +472,11 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
+                Image = CreateStatusInfoIcon(),
+                ImageAlign = ContentAlignment.MiddleLeft,
                 ForeColor = Color.FromArgb(88, 96, 103),
                 AutoEllipsis = true,
+                Padding = new Padding(24, 0, 0, 0),
                 Margin = new Padding(0, 0, 8, 0),
                 AccessibleName = "Estado de la preparación"
             };
@@ -688,12 +691,66 @@ namespace EspritSolidFixture
                 ImageSize = new Size(16, 16),
                 ColorDepth = ColorDepth.Depth32Bit
             };
-            images.Images.Add("machine", CreateTreeNodeIcon(Color.FromArgb(108, 168, 199), true));
-            images.Images.Add("accessory", CreateTreeNodeIcon(Color.FromArgb(166, 174, 179), false));
-            images.Images.Add("jaws", CreateJawsTreeIcon());
-            images.Images.Add("fixture", CreateTreeNodeIcon(Color.FromArgb(139, 190, 116), false));
-            images.Images.Add("part", CreateTreeNodeIcon(Color.FromArgb(112, 174, 207), false));
+            images.Images.Add("machine", LoadNativeTreeIcon("Setup.Machine.png",
+                CreateTreeNodeIcon(Color.FromArgb(108, 168, 199), true)));
+            images.Images.Add("accessory", LoadNativeTreeIcon("Setup.Fixture.png",
+                CreateTreeNodeIcon(Color.FromArgb(166, 174, 179), false)));
+            images.Images.Add("jaws", LoadNativeTreeIcon("Setup.MountJaws.png",
+                CreateJawsTreeIcon()));
+            images.Images.Add("fixture", LoadNativeTreeIcon("Setup.MountFixture.png",
+                CreateTreeNodeIcon(Color.FromArgb(139, 190, 116), false)));
+            images.Images.Add("part", LoadNativeTreeIcon("Setup.MountWorkpiece.png",
+                CreateTreeNodeIcon(Color.FromArgb(112, 174, 207), false)));
             return images;
+        }
+
+        private static Bitmap LoadNativeTreeIcon(string fileName, Bitmap fallback)
+        {
+            try
+            {
+                string programFolder = Path.GetDirectoryName(
+                    System.Windows.Forms.Application.ExecutablePath);
+                string installRoot = Directory.GetParent(programFolder ?? string.Empty)?.FullName;
+                string path = Path.Combine(installRoot ?? string.Empty,
+                    "Help", "ToolTipImages", fileName);
+                if (!File.Exists(path)) return fallback;
+
+                using (Image source = Image.FromFile(path))
+                {
+                    var bitmap = new Bitmap(16, 16);
+                    using (Graphics graphics = Graphics.FromImage(bitmap))
+                    {
+                        graphics.InterpolationMode =
+                            System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        graphics.PixelOffsetMode =
+                            System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                        graphics.DrawImage(source, new Rectangle(0, 0, 16, 16));
+                    }
+                    fallback.Dispose();
+                    return bitmap;
+                }
+            }
+            catch { return fallback; }
+        }
+
+        private static Bitmap CreateStatusInfoIcon()
+        {
+            var bitmap = new Bitmap(18, 18);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var circle = new SolidBrush(Color.FromArgb(32, 145, 210)))
+            using (var text = new SolidBrush(Color.White))
+            using (var font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Pixel))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.FillEllipse(circle, 1, 1, 16, 16);
+                var format = new StringFormat
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                };
+                graphics.DrawString("i", font, text, new RectangleF(1, 0, 16, 17), format);
+            }
+            return bitmap;
         }
 
         private static Bitmap CreateTreeNodeIcon(Color color, bool machine)
@@ -1660,7 +1717,7 @@ namespace EspritSolidFixture
 
         private void SetValidationStatus(string text, bool ready)
         {
-            _validationStatus.Text = (ready ? "●  " : "○  ") + text;
+            _validationStatus.Text = text;
             _validationStatus.ForeColor = ready
                 ? Color.FromArgb(63, 132, 46)
                 : Color.FromArgb(88, 96, 103);
