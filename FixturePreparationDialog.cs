@@ -2030,23 +2030,23 @@ namespace EspritSolidFixture
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 graphics.FillPolygon(back, new[]
                 {
-                    new Point(1, 4), new Point(7, 4), new Point(9, 6),
-                    new Point(17, 6), new Point(17, 15), new Point(1, 15)
+                    new Point(1, 2), new Point(7, 2), new Point(9, 4),
+                    new Point(17, 4), new Point(17, 13), new Point(1, 13)
                 });
                 graphics.DrawPolygon(edge, new[]
                 {
-                    new Point(1, 4), new Point(7, 4), new Point(9, 6),
-                    new Point(17, 6), new Point(17, 15), new Point(1, 15)
+                    new Point(1, 2), new Point(7, 2), new Point(9, 4),
+                    new Point(17, 4), new Point(17, 13), new Point(1, 13)
                 });
                 graphics.FillPolygon(front, new[]
                 {
-                    new Point(2, 8), new Point(17, 8), new Point(14, 16),
-                    new Point(1, 16)
+                    new Point(2, 6), new Point(17, 6), new Point(14, 14),
+                    new Point(1, 14)
                 });
                 graphics.DrawPolygon(edge, new[]
                 {
-                    new Point(2, 8), new Point(17, 8), new Point(14, 16),
-                    new Point(1, 16)
+                    new Point(2, 6), new Point(17, 6), new Point(14, 14),
+                    new Point(1, 14)
                 });
             }
             return bitmap;
