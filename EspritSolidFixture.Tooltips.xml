@@ -3,7 +3,10 @@
   <topic id="EspritSolidFixture.CreateFixture">
     <title id="EspritSolidFixture.CreateFixture.title">Preparación de utillaje</title>
     <abstract id="EspritSolidFixture.CreateFixture.abstract">
-      <shortdesc>Abre la vista de pieza para seleccionar uno o varios sólidos de utillaje.</shortdesc>
+      <shortdesc>Prepara y monta la pieza, el bruto, los accesorios, las garras y los utillajes CAD en la máquina.</shortdesc>
     </abstract>
+    <body>
+      <p>Permite seleccionar los sólidos de pieza y bruto, crear accesorios GDML desde el CAD y construir el montaje completo en la configuración principal, en una nueva fase o en un nuevo archivo ESPRIT.</p>
+    </body>
   </topic>
 </dita>

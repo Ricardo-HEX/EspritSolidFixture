@@ -10,7 +10,8 @@ namespace EspritSolidFixture
         private ExtensionController _controller;
 
         public string Name => "Utillaje CAD";
-        public string Description => "Crea un accesorio de ESPRIT a partir de un sólido CAD de utillaje.";
+        public string Description =>
+            "Prepara la pieza, el bruto y el árbol de utillajes, y crea el montaje completo en ESPRIT.";
         public string Publisher => "Hexagon Custom Solutions";
         public string Url => string.Empty;
 

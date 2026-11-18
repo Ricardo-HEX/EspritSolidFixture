@@ -29,6 +29,10 @@ namespace EspritSolidFixture
         private readonly TreeView _mountingTree;
         private readonly Panel _fixtureSelectionPanel;
         private readonly Button _fixtureToolbarButton;
+        private readonly Control _mountingFaceSection;
+        private readonly Control _mountingChoices;
+        private readonly Control _destinationSection;
+        private readonly Control _destinationChoices;
         private readonly RadioButton _stockEsprit;
         private readonly RadioButton _stockSolid;
         private readonly RadioButton _stockFile;
@@ -367,7 +371,8 @@ namespace EspritSolidFixture
             _fixtureSelectionPanel.Controls.Add(fixtureSelectionLayout);
             layout.Controls.Add(_fixtureSelectionPanel);
 
-            layout.Controls.Add(Section("Cara de montaje"));
+            _mountingFaceSection = Section("Cara de montaje");
+            layout.Controls.Add(_mountingFaceSection);
             var mountingChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -383,14 +388,16 @@ namespace EspritSolidFixture
             _mountTop = MountingChoice("Cara superior\r\nGiro Y 180° + Z 180°", false);
             _mountBottom.Margin = new Padding(0, 0, 6, 0);
             _mountTop.Margin = new Padding(6, 0, 0, 0);
-            _mountBottom.CheckedChanged += (s, e) => StyleMountingChoices();
-            _mountTop.CheckedChanged += (s, e) => StyleMountingChoices();
+            _mountBottom.CheckedChanged += MountingFaceOnCheckedChanged;
+            _mountTop.CheckedChanged += MountingFaceOnCheckedChanged;
             mountingChoices.Controls.Add(_mountBottom, 0, 0);
             mountingChoices.Controls.Add(_mountTop, 1, 0);
+            _mountingChoices = mountingChoices;
             layout.Controls.Add(mountingChoices);
             StyleMountingChoices();
 
-            layout.Controls.Add(Section("Destino del montaje"));
+            _destinationSection = Section("Destino del montaje");
+            layout.Controls.Add(_destinationSection);
             var destinationChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -414,6 +421,7 @@ namespace EspritSolidFixture
             destinationChoices.Controls.Add(_destinationCurrent, 0, 0);
             destinationChoices.Controls.Add(_destinationNew, 1, 0);
             destinationChoices.Controls.Add(_destinationFile, 2, 0);
+            _destinationChoices = destinationChoices;
             layout.Controls.Add(destinationChoices);
             StyleMountingChoice(_destinationCurrent);
             StyleMountingChoice(_destinationNew);
@@ -544,9 +552,12 @@ namespace EspritSolidFixture
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
-                Margin = new Padding(0, 0, 6, 0)
+                Margin = new Padding(0, 0, 6, 0),
+                Cursor = Cursors.Hand
             };
             button.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(235, 246, 251);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(214, 237, 248);
             button.Click += click;
             return button;
         }
@@ -563,6 +574,7 @@ namespace EspritSolidFixture
 
         private void BrowseAccessory(object sender, EventArgs e)
         {
+            PrepareForExtensionCommand();
             string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
             if (path == null) return;
             _mountingElements.Add(new MountingElementSpec(
@@ -572,6 +584,7 @@ namespace EspritSolidFixture
 
         private void BrowseJaws(object sender, EventArgs e)
         {
+            PrepareForExtensionCommand();
             if (!_mountingElements.Any(x => x.Type == MountingElementType.Accessory))
             {
                 MessageBox.Show(this,
@@ -591,8 +604,10 @@ namespace EspritSolidFixture
             bool show = !_fixtureSelectionPanel.Visible;
             if (show)
             {
+                EndSelectionMode(true);
                 _fixtureSelectionPanel.Visible = true;
                 _fixtureToolbarButton.BackColor = Color.FromArgb(232, 246, 252);
+                SetPostSelectionControlsVisible(false);
                 ActivateWindowSelection(SelectionRole.Fixtures);
                 _fixtureSelectionPanel.ScrollControlIntoView(_fixtureBox);
             }
@@ -605,7 +620,26 @@ namespace EspritSolidFixture
             EndSelectionMode(true);
             _fixtureSelectionPanel.Visible = false;
             _fixtureToolbarButton.BackColor = Color.White;
+            SetPostSelectionControlsVisible(true);
             RefreshMountingTree();
+        }
+
+        private void PrepareForExtensionCommand()
+        {
+            EndSelectionMode(true);
+            if (!_fixtureSelectionPanel.Visible) return;
+            _fixtureSelectionPanel.Visible = false;
+            _fixtureToolbarButton.BackColor = Color.White;
+            SetPostSelectionControlsVisible(true);
+        }
+
+        private void SetPostSelectionControlsVisible(bool visible)
+        {
+            _mountingFaceSection.Visible = visible;
+            _mountingChoices.Visible = visible;
+            _destinationSection.Visible = visible;
+            _destinationChoices.Visible = visible;
+            _newFilePanel.Visible = visible && _destinationFile.Checked;
         }
 
         private void EndSelectionMode(bool clearGraphicSelection)
@@ -663,6 +697,7 @@ namespace EspritSolidFixture
 
         private void RemoveMountingElement(object sender, EventArgs e)
         {
+            PrepareForExtensionCommand();
             if (!(_mountingTree.SelectedNode?.Tag is MountingElementSpec element)) return;
             int index = _mountingElements.IndexOf(element);
             if (index < 0) return;
@@ -684,6 +719,7 @@ namespace EspritSolidFixture
 
         private void MoveMountingElement(int delta)
         {
+            PrepareForExtensionCommand();
             if (!(_mountingTree.SelectedNode?.Tag is MountingElementSpec element)) return;
             int index = _mountingElements.IndexOf(element);
             int target = index + delta;
@@ -715,6 +751,7 @@ namespace EspritSolidFixture
         private void MountingTreeOnNodeMouseDoubleClick(object sender,
             TreeNodeMouseClickEventArgs e)
         {
+            PrepareForExtensionCommand();
             if (e.Node?.Tag as string != "Machine" || !_destinationFile.Checked) return;
             BrowseNewMachine(sender, EventArgs.Empty);
         }
@@ -930,6 +967,7 @@ namespace EspritSolidFixture
             if (!choice.Checked || !(choice.Tag is StockMode mode)) return;
             _stockMode = mode;
             if (_initializing) return;
+            PrepareForExtensionCommand();
             UpdateStockModeUi();
             RefreshState();
         }
@@ -961,6 +999,7 @@ namespace EspritSolidFixture
 
         private void BrowseStockFile(object sender, EventArgs e)
         {
+            PrepareForExtensionCommand();
             using (var dialog = new OpenFileDialog
             {
                 Title = "Seleccionar archivo STL para el bruto",
@@ -1265,21 +1304,31 @@ namespace EspritSolidFixture
             StyleMountingChoice(_destinationCurrent);
             StyleMountingChoice(_destinationNew);
             StyleMountingChoice(_destinationFile);
+            bool activated = sender is RadioButton changedChoice && changedChoice.Checked;
+            if (activated && !_initializing)
+            {
+                PrepareForExtensionCommand();
+                _mountBottom.Checked = _destinationCurrent.Checked;
+                _mountTop.Checked = !_destinationCurrent.Checked;
+            }
             bool newFile = _destinationFile.Checked;
             _stockSection.Visible = !newFile;
             _stockChoices.Visible = !newFile;
             _stockContext.Visible = !newFile;
             _newFilePanel.Visible = newFile;
-            if (_destinationNew.Checked || newFile)
-            {
-                _mountTop.Checked = true;
-            }
             int nextPhase = GetNextConfigurationNumber();
             if (newFile && string.IsNullOrWhiteSpace(_espritFileName.Text))
                 _espritFileName.Text = GetDefaultEspritFileName(nextPhase);
             _destinationFile.Text = (newFile ? "✓  " : string.Empty) +
                 "Nuevo archivo ESPRIT\r\nCrear Fase " + nextPhase;
             RefreshState();
+        }
+
+        private void MountingFaceOnCheckedChanged(object sender, EventArgs e)
+        {
+            if (!_initializing && sender is RadioButton choice && choice.Checked)
+                PrepareForExtensionCommand();
+            StyleMountingChoices();
         }
 
         private int GetNextConfigurationNumber()
@@ -2053,12 +2102,12 @@ namespace EspritSolidFixture
         {
             Text = text,
             Dock = DockStyle.Top,
-            Height = 22,
+            Height = 24,
             BackColor = HeaderGray,
             ForeColor = Color.Black,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(9, 0, 0, 0),
-            Margin = new Padding(0, 7, 0, 4),
+            Margin = new Padding(0, 8, 0, 5),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
         };
 
@@ -2115,6 +2164,7 @@ namespace EspritSolidFixture
             };
             choice.FlatAppearance.BorderSize = 1;
             choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            choice.FlatAppearance.MouseOverBackColor = Color.FromArgb(235, 246, 251);
             return choice;
         }
 
