@@ -231,26 +231,46 @@ namespace EspritSolidFixture
             layout.Controls.Add(_stockContext);
 
             layout.Controls.Add(Section("Árbol de montaje"));
-            var mountingToolbar = new FlowLayoutPanel
+            var mountingToolbar = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
                 Height = 38,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
+                ColumnCount = 2,
+                RowCount = 1,
                 Margin = new Padding(0, 2, 0, 3),
                 BackColor = Color.White
             };
-            mountingToolbar.Controls.Add(TreeAddButton("Accesorio", BrowseAccessory));
-            mountingToolbar.Controls.Add(TreeAddButton("Garras", BrowseJaws));
+            mountingToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            mountingToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var addActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0),
+                BackColor = Color.White
+            };
+            addActions.Controls.Add(TreeAddButton("Accesorio", BrowseAccessory));
+            addActions.Controls.Add(TreeAddButton("Garras", BrowseJaws));
             _fixtureToolbarButton = TreeAddButton("Utillaje", ToggleFixtureSelection);
-            mountingToolbar.Controls.Add(_fixtureToolbarButton);
-            mountingToolbar.Controls.Add(TreeToolbarSeparator());
-            mountingToolbar.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
-                "Subir elemento"));
-            mountingToolbar.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
-                "Bajar elemento"));
-            mountingToolbar.Controls.Add(TreeIconButton("✕", RemoveMountingElement,
+            addActions.Controls.Add(_fixtureToolbarButton);
+            var editActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                Margin = new Padding(0),
+                BackColor = Color.White
+            };
+            editActions.Controls.Add(TreeIconButton("✕", RemoveMountingElement,
                 "Eliminar elemento"));
+            editActions.Controls.Add(TreeIconButton("↓", MoveMountingElementDown,
+                "Bajar elemento"));
+            editActions.Controls.Add(TreeIconButton("↑", MoveMountingElementUp,
+                "Subir elemento"));
+            mountingToolbar.Controls.Add(addActions, 0, 0);
+            mountingToolbar.Controls.Add(editActions, 1, 0);
             layout.Controls.Add(mountingToolbar);
 
             _mountingTree = new TreeView
@@ -569,30 +589,25 @@ namespace EspritSolidFixture
         private Button TreeAddButton(string text, EventHandler click)
         {
             Button button = TreeActionButton(text, click);
+            button.AutoSize = false;
+            button.Width = 92;
             button.Image = CreateSmallAddIcon();
-            button.ImageAlign = ContentAlignment.MiddleLeft;
+            button.ImageAlign = ContentAlignment.MiddleCenter;
+            button.TextAlign = ContentAlignment.MiddleCenter;
             button.TextImageRelation = TextImageRelation.ImageBeforeText;
-            button.Padding = new Padding(2, 0, 3, 0);
+            button.Padding = new Padding(0, 1, 0, 0);
             return button;
         }
 
-        private static Control TreeToolbarSeparator() => new Panel
-        {
-            Width = 1,
-            Height = 26,
-            BackColor = Color.FromArgb(190, 195, 198),
-            Margin = new Padding(2, 3, 7, 0)
-        };
-
         private static Bitmap CreateSmallAddIcon()
         {
-            var bitmap = new Bitmap(12, 12);
+            var bitmap = new Bitmap(13, 13);
             using (Graphics graphics = Graphics.FromImage(bitmap))
             using (var pen = new Pen(Color.FromArgb(67, 161, 45), 1.8F))
             {
                 graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                graphics.DrawLine(pen, 6, 2, 6, 10);
-                graphics.DrawLine(pen, 2, 6, 10, 6);
+                graphics.DrawLine(pen, 6, 3, 6, 11);
+                graphics.DrawLine(pen, 2, 7, 10, 7);
             }
             return bitmap;
         }
@@ -906,9 +921,8 @@ namespace EspritSolidFixture
             {
                 Image = CreateFileBrowseIcon(),
                 ImageAlign = ContentAlignment.MiddleCenter,
-                Anchor = AnchorStyles.None,
-                Size = new Size(26, 26),
-                Margin = new Padding(0),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(3, 6, 3, 6),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 Cursor = Cursors.Hand,
