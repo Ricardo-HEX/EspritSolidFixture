@@ -401,26 +401,29 @@ namespace EspritSolidFixture
             var destinationChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 72,
-                ColumnCount = 3,
+                Height = 144,
+                ColumnCount = 2,
+                RowCount = 2,
                 Margin = new Padding(0, 0, 0, 8),
                 BackColor = Color.White
             };
-            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.334F));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            destinationChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            destinationChoices.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            destinationChoices.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             _destinationCurrent = MountingChoice("Configuración principal\r\nMontar en la primera fase", true);
             _destinationNew = MountingChoice("Nueva configuración\r\nCrear la siguiente fase", false);
             _destinationFile = MountingChoice("Nuevo archivo ESPRIT\r\nCrear la siguiente fase", false);
-            _destinationCurrent.Margin = new Padding(0, 0, 4, 0);
-            _destinationNew.Margin = new Padding(2, 0, 2, 0);
-            _destinationFile.Margin = new Padding(4, 0, 0, 0);
+            _destinationCurrent.Margin = new Padding(0, 0, 6, 4);
+            _destinationNew.Margin = new Padding(6, 0, 0, 4);
+            _destinationFile.Margin = new Padding(0, 4, 0, 0);
             _destinationCurrent.CheckedChanged += DestinationOnCheckedChanged;
             _destinationNew.CheckedChanged += DestinationOnCheckedChanged;
             _destinationFile.CheckedChanged += DestinationOnCheckedChanged;
             destinationChoices.Controls.Add(_destinationCurrent, 0, 0);
             destinationChoices.Controls.Add(_destinationNew, 1, 0);
-            destinationChoices.Controls.Add(_destinationFile, 2, 0);
+            destinationChoices.Controls.Add(_destinationFile, 0, 1);
+            destinationChoices.SetColumnSpan(_destinationFile, 2);
             _destinationChoices = destinationChoices;
             layout.Controls.Add(destinationChoices);
             StyleMountingChoice(_destinationCurrent);
