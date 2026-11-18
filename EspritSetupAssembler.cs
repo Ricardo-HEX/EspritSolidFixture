@@ -57,11 +57,7 @@ namespace EspritSolidFixture
                 throw new FileNotFoundException("No se encontró el archivo de bruto seleccionado.", fileName);
 
             ConfigurePartCore(partSolid, workpiece =>
-            {
-                Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
-                stock.Name = "Material1";
-                stock.FileName = fileName;
-            });
+                AddFileStock(workpiece, "Material1", fileName));
         }
 
         public void ConfigureExistingPartAndFileStock(string fileName)
@@ -78,9 +74,7 @@ namespace EspritSolidFixture
                 Esprit.Workpiece workpiece = _document.Workpieces[1];
                 for (int index = workpiece.Stocks.Count; index > 0; index--)
                     workpiece.Stocks.Remove(index);
-                Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
-                stock.Name = "Material_Fase_Anterior";
-                stock.FileName = fileName;
+                AddFileStock(workpiece, "Material_Fase_Anterior", fileName);
                 setup.EndEdit();
             }
             catch
@@ -141,8 +135,7 @@ namespace EspritSolidFixture
                 setup.BeginEdit();
                 try
                 {
-                    for (int index = setup.MachineItems.Count; index > 0; index--)
-                        setup.MachineItems.Remove(index);
+                    ClearMachineItems(setup.MachineItems);
                     setup.MachineFileName = machinePath;
                     setup.EndEdit();
                 }
@@ -238,9 +231,7 @@ namespace EspritSolidFixture
                 setup.BeginEdit();
                 try
                 {
-                    for (int itemIndex = setup.MachineItems.Count;
-                         itemIndex > 0; itemIndex--)
-                        setup.MachineItems.Remove(itemIndex);
+                    ClearMachineItems(setup.MachineItems);
                     setup.EndEdit();
                 }
                 catch
@@ -257,6 +248,20 @@ namespace EspritSolidFixture
             if (collection == null) return;
             dynamic items = collection;
             for (int index = Convert.ToInt32(items.Count); index > 0; index--)
+                items.Remove(index);
+        }
+
+        private static void AddFileStock(Esprit.Workpiece workpiece, string name,
+            string fileName)
+        {
+            Esprit.FileStock stock = workpiece.Stocks.AddFileStock();
+            stock.Name = name;
+            stock.FileName = fileName;
+        }
+
+        private static void ClearMachineItems(Esprit.MachineItems items)
+        {
+            for (int index = items.Count; index > 0; index--)
                 items.Remove(index);
         }
 
@@ -343,8 +348,7 @@ namespace EspritSolidFixture
                 if (createNewConfiguration)
                 {
                     step = "vaciar el montaje copiado en la nueva configuración";
-                    for (int index = setup.MachineItems.Count; index > 0; index--)
-                        setup.MachineItems.Remove(index);
+                    ClearMachineItems(setup.MachineItems);
                 }
 
                 Esprit.MachineItems mountingItems = setup.MachineItems;

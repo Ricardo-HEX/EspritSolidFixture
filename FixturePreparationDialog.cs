@@ -65,7 +65,7 @@ namespace EspritSolidFixture
         private readonly Timer _partSetupTimer;
         private bool _partSetupWasEditing;
         private PendingMount _pendingPartSetupMount;
-        private bool _initializing = true;
+        private readonly bool _initializing = true;
 
         public FixturePreparationDialog(Esprit.Application app)
         {
@@ -1006,10 +1006,11 @@ namespace EspritSolidFixture
             {
                 _mountTop.Checked = true;
             }
+            int nextPhase = GetNextConfigurationNumber();
             if (newFile && string.IsNullOrWhiteSpace(_espritFileName.Text))
-                _espritFileName.Text = GetDefaultEspritFileName(GetNextConfigurationNumber());
+                _espritFileName.Text = GetDefaultEspritFileName(nextPhase);
             _destinationFile.Text = (newFile ? "✓  " : string.Empty) +
-                "Nuevo archivo ESPRIT\r\nCrear Fase " + GetNextConfigurationNumber();
+                "Nuevo archivo ESPRIT\r\nCrear Fase " + nextPhase;
             RefreshState();
         }
 
@@ -1137,9 +1138,7 @@ namespace EspritSolidFixture
 
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool stockReady = _stockMode == StockMode.Esprit ||
-                              (_stockMode == StockMode.Solid && _stock != null) ||
-                              (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+            bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
             bool newFileReady = _destinationFile.Checked &&
                                 (_part != null || HasExistingPart()) &&
@@ -1168,6 +1167,11 @@ namespace EspritSolidFixture
             }
             catch { return false; }
         }
+
+        private bool IsStockReady() =>
+            _stockMode == StockMode.Esprit ||
+            (_stockMode == StockMode.Solid && _stock != null) ||
+            (_stockMode == StockMode.File && File.Exists(_stockFilePath));
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
         {
@@ -1217,35 +1221,38 @@ namespace EspritSolidFixture
             _activeSelectionRole = null;
             string folder = DetermineOutputFolder();
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
-            bool stockReady = _stockMode == StockMode.Esprit ||
-                              (_stockMode == StockMode.Solid && _stock != null) ||
-                              (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+            bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
             bool newFile = _destinationFile.Checked;
+            string newEspritPath = newFile ? GetNewEspritPath() : null;
             bool newFileReady = newFile && (_part != null || HasExistingPart()) &&
-                                File.Exists(_newMachinePath) && GetNewEspritPath() != null;
+                                File.Exists(_newMachinePath) && newEspritPath != null;
             if ((newFile ? !newFileReady : !reusePreviousPart && !definePartAndStock) ||
                 _fixtures.Count == 0 || folder == null)
                 return;
             IReadOnlyList<string> paths;
-            double mountingStackHeight = 0;
-            double workOffsetBaseZ = 0;
+            double mountingStackHeight;
+            double workOffsetBaseZ;
             try
             {
                 var document = (Esprit.Document)_app.Document;
                 var exporter = new GdmlFixtureExporter(document);
-                IEnumerable<SolidChoice> fixtureOrder =
-                    _fixtures.OrderBy(x => GetMinimumZ(x.Solid));
-                var orderedChoices = fixtureOrder.ToList();
-                var orderedFixtures = orderedChoices.Select(x => x.Solid).ToList();
-                mountingStackHeight = _combine.Checked && orderedChoices.Count > 1
-                    ? orderedChoices.Max(x => GetMaximumZ(x.Solid)) -
-                      orderedChoices.Min(x => GetMinimumZ(x.Solid))
-                    : orderedChoices.Sum(x =>
-                        GetMaximumZ(x.Solid) - GetMinimumZ(x.Solid));
+                var fixtureBounds = _fixtures
+                    .Select(choice =>
+                    {
+                        var bounds = GetZBounds(choice.Solid);
+                        return (Choice: choice, MinimumZ: bounds.Minimum,
+                            MaximumZ: bounds.Maximum);
+                    })
+                    .OrderBy(item => item.MinimumZ)
+                    .ToList();
+                var orderedFixtures = fixtureBounds.Select(x => x.Choice.Solid).ToList();
+                mountingStackHeight = _combine.Checked && fixtureBounds.Count > 1
+                    ? fixtureBounds.Max(x => x.MaximumZ) - fixtureBounds.Min(x => x.MinimumZ)
+                    : fixtureBounds.Sum(x => x.MaximumZ - x.MinimumZ);
                 workOffsetBaseZ = _mountTop.Checked
-                    ? orderedChoices.Max(x => GetMaximumZ(x.Solid))
-                    : orderedChoices.Min(x => GetMinimumZ(x.Solid));
+                    ? fixtureBounds.Max(x => x.MaximumZ)
+                    : fixtureBounds.Min(x => x.MinimumZ);
                 paths = exporter.Export(
                     orderedFixtures, folder, GetAutomaticPhaseNumber(),
                     _combine.Checked, _mountTop.Checked);
@@ -1263,7 +1270,7 @@ namespace EspritSolidFixture
                 RotateAssembly = _mountTop.Checked,
                 MountingStackHeight = mountingStackHeight,
                 WorkOffsetBaseZ = workOffsetBaseZ,
-                NewEspritPath = newFile ? GetNewEspritPath() : null,
+                NewEspritPath = newEspritPath,
                 NewMachinePath = newFile ? _newMachinePath : null,
                 SelectedPart = newFile ? _part?.Solid : null
             };
@@ -1463,28 +1470,20 @@ namespace EspritSolidFixture
             return value.Trim().TrimEnd('.');
         }
 
-        private static double GetMinimumZ(Esprit.Solid solid)
+        private static (double Minimum, double Maximum) GetZBounds(Esprit.Solid solid)
         {
             EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
             double minimum = double.PositiveInfinity;
-            foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
-                minimum = Math.Min(minimum, vertex.Geometry.Z);
-
-            if (double.IsPositiveInfinity(minimum))
-                throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
-            return minimum;
-        }
-
-        private static double GetMaximumZ(Esprit.Solid solid)
-        {
-            EspritSolids.ISolidBody body = (EspritSolids.ISolidBody)solid.SolidBody;
             double maximum = double.NegativeInfinity;
             foreach (EspritSolids.ISolidVertex vertex in body.SolidVertices)
+            {
+                minimum = Math.Min(minimum, vertex.Geometry.Z);
                 maximum = Math.Max(maximum, vertex.Geometry.Z);
+            }
 
-            if (double.IsNegativeInfinity(maximum))
+            if (double.IsPositiveInfinity(minimum) || double.IsNegativeInfinity(maximum))
                 throw new InvalidDataException("No se pudo calcular la altura del sólido " + solid.Number + ".");
-            return maximum;
+            return (minimum, maximum);
         }
 
         private static Icon LoadEspritIcon()

@@ -26,9 +26,9 @@ namespace EspritSolidFixture
             {
                 if (combine && sourceSolids.Count > 1)
                 {
-                    var items = sourceSolids.Select(solid => new SolidBounds(GetBounds(solid))).ToList();
-                    SolidBounds lowest = items.OrderBy(x => x.Bounds.MinZ).First();
-                    SolidBounds highest = items.OrderByDescending(x => x.Bounds.MaxZ).First();
+                    var bounds = sourceSolids.Select(GetBounds).ToList();
+                    double minimumZ = bounds.Min(item => item.MinZ);
+                    double maximumZ = bounds.Max(item => item.MaxZ);
                     string cadName = GetCadName(sourceSolids[0]);
                     string fileName = string.Format(CultureInfo.InvariantCulture,
                         "Utillaje_{0}_Fase_{1}_Combinado{2}.gdml", cadName, phase,
@@ -39,7 +39,7 @@ namespace EspritSolidFixture
                     foreach (Esprit.Solid solid in sourceSolids) _document.Group.Add(solid);
                     _document.SaveAsGDML(path, EspritConstants.espFileType.espFileTypeFixtures);
 
-                    NormalizeFixture(path, cadName, lowest.Bounds.MinZ, highest.Bounds.MaxZ);
+                    NormalizeFixture(path, cadName, minimumZ, maximumZ);
                     paths.Add(path);
                 }
                 else
@@ -47,12 +47,11 @@ namespace EspritSolidFixture
                     for (int index = 0; index < sourceSolids.Count; index++)
                     {
                         Esprit.Solid solid = sourceSolids[index];
-                        Esprit.Solid sourceSolid = solid;
                         Bounds bounds = GetBounds(solid);
-                        string cadName = GetCadName(sourceSolid);
+                        string cadName = GetCadName(solid);
                         string fileName = string.Format(CultureInfo.InvariantCulture,
                             "Utillaje_{0}_Fase_{1}_Solido_{2}{3}.gdml",
-                            cadName, phase, sourceSolid.Number,
+                            cadName, phase, solid.Number,
                             mountFromTop ? "_Superior" : string.Empty);
                         string path = PrepareOutputPath(Path.Combine(folder, fileName));
 
@@ -200,16 +199,6 @@ namespace EspritSolidFixture
 
             public double MinZ { get; }
             public double MaxZ { get; }
-        }
-
-        private sealed class SolidBounds
-        {
-            public SolidBounds(Bounds bounds)
-            {
-                Bounds = bounds;
-            }
-
-            public Bounds Bounds { get; }
         }
 
     }
