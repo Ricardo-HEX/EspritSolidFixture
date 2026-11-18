@@ -116,9 +116,9 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                Padding = new Padding(20, 14, 20, 20),
+                Padding = new Padding(20, 14, 20, 4),
                 BackColor = Color.White,
-                AutoScroll = true
+                AutoScroll = false
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
@@ -458,8 +458,8 @@ namespace EspritSolidFixture
             var bottom = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 70,
-                Padding = new Padding(18, 14, 18, 14),
+                Height = 64,
+                Padding = new Padding(18, 12, 18, 10),
                 FlowDirection = FlowDirection.RightToLeft,
                 BackColor = SystemColors.Control
             };
