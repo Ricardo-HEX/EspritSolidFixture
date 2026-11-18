@@ -527,6 +527,8 @@ namespace EspritSolidFixture
             fields.Controls.Add(_machinePathText, 1, 0);
             var browseMachine = NativeBrowseButton("Seleccionar máquina para el nuevo archivo");
             browseMachine.Image = CreateFolderBrowseIcon();
+            browseMachine.BackColor = panel.BackColor;
+            browseMachine.Tag = panel.BackColor;
             browseMachine.Click += BrowseNewMachine;
             fields.Controls.Add(browseMachine, 2, 0);
 
@@ -541,6 +543,8 @@ namespace EspritSolidFixture
             fields.Controls.Add(_espritFileName, 1, 1);
             var browseOutput = NativeBrowseButton("Cambiar carpeta del nuevo archivo ESPRIT");
             browseOutput.Image = CreateFolderBrowseIcon();
+            browseOutput.BackColor = panel.BackColor;
+            browseOutput.Tag = panel.BackColor;
             browseOutput.Click += BrowseNewOutputDirectory;
             fields.Controls.Add(browseOutput, 2, 1);
 
@@ -618,17 +622,25 @@ namespace EspritSolidFixture
         private void BrowseNewOutputDirectory(object sender, EventArgs e)
         {
             string initialDirectory = GetNewOutputDirectory();
-            using (var dialog = new FolderBrowserDialog
+            string suggestedName = SanitizeFileName(Path.GetFileNameWithoutExtension(
+                _espritFileName.Text.Trim()));
+            using (var dialog = new SaveFileDialog
             {
-                Description = "Seleccione la carpeta del nuevo archivo ESPRIT",
-                SelectedPath = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
-                ShowNewFolderButton = true
+                Title = "Guardar nueva fase de ESPRIT",
+                Filter = "Archivos ESPRIT (*.esprit)|*.esprit",
+                DefaultExt = "esprit",
+                AddExtension = true,
+                FileName = suggestedName,
+                InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
+                CheckPathExists = true,
+                OverwritePrompt = true,
+                RestoreDirectory = true
             })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                _newOutputDirectory = dialog.SelectedPath;
-                _toolTip.SetToolTip(_espritFileName,
-                    Path.Combine(_newOutputDirectory, _espritFileName.Text.Trim() + ".esprit"));
+                _newOutputDirectory = Path.GetDirectoryName(dialog.FileName);
+                _espritFileName.Text = Path.GetFileNameWithoutExtension(dialog.FileName);
+                _toolTip.SetToolTip(_espritFileName, dialog.FileName);
                 RefreshState();
             }
         }
@@ -702,7 +714,9 @@ namespace EspritSolidFixture
         {
             button.FlatAppearance.BorderSize = visible ? 1 : 0;
             button.FlatAppearance.BorderColor = Color.FromArgb(218, 174, 49);
-            button.BackColor = visible ? Color.FromArgb(255, 239, 167) : Color.White;
+            button.BackColor = visible
+                ? Color.FromArgb(255, 239, 167)
+                : button.Tag is Color baseColor ? baseColor : Color.White;
         }
 
         private void ActivateWindowSelection(SelectionRole role)
