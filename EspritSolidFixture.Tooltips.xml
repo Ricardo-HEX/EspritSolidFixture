@@ -6,6 +6,7 @@
       <shortdesc>Prepara la pieza, el bruto y todos los elementos necesarios para crear el montaje completo en la máquina.</shortdesc>
       <p>Permite añadir accesorios, conjuntos de garras y utillajes creados desde sólidos CAD, organizándolos en el orden correcto mediante el árbol de montaje.</p>
       <p>El montaje se puede aplicar a la configuración principal, crear la siguiente fase en una configuración nueva o generar un archivo ESPRIT independiente con otra máquina.</p>
+      <image placement="break" href="Assets/EspritSolidFixture.Tooltip.png"/>
     </abstract>
   </topic>
 </dita>
