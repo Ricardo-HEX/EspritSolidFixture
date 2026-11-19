@@ -44,10 +44,65 @@ namespace EspritSolidFixture
             });
         }
 
-        public void ConfigurePartOnly(Esprit.Solid partSolid)
+        public void ConfigurePartAndBlockStock(Esprit.Solid partSolid, bool autoSize,
+            double length, double width, double height,
+            EspritConstants.espStockAlignmentType lengthAlignment,
+            EspritConstants.espStockAlignmentType widthAlignment,
+            EspritConstants.espStockAlignmentType heightAlignment)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
-            ConfigurePartCore(partSolid, null);
+            ConfigurePartCore(partSolid, workpiece =>
+            {
+                Esprit.BlockStock stock = workpiece.Stocks.AddBlockStock();
+                stock.Name = "Material1";
+                if (autoSize) stock.AutoSize();
+                SetBlockAlignment(stock, lengthAlignment, widthAlignment, heightAlignment,
+                    autoSize, length, width, height);
+            });
+        }
+
+        public void ConfigurePartAndBarStock(Esprit.Solid partSolid, bool autoSize,
+            double outsideDiameter, double insideDiameter, double length,
+            EspritConstants.espStockAlignmentType lengthAlignment)
+        {
+            if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
+            ConfigurePartCore(partSolid, workpiece =>
+            {
+                Esprit.BarStock stock = workpiece.Stocks.AddBarStock();
+                stock.Name = "Material1";
+                stock.Tolerance = 0.1;
+                if (autoSize)
+                    stock.AutoSize();
+                else
+                    stock.OutsideDiameter = outsideDiameter;
+                stock.InsideDiameter = autoSize ? 0.0 : insideDiameter;
+                EspritConstants.STOCKALIGNMENT alignment = stock.get_LengthAlignment();
+                alignment.AlignmentType = lengthAlignment;
+                if (!autoSize) alignment.Size = length;
+                stock.set_LengthAlignment(alignment);
+            });
+        }
+
+        private static void SetBlockAlignment(Esprit.BlockStock stock,
+            EspritConstants.espStockAlignmentType lengthType,
+            EspritConstants.espStockAlignmentType widthType,
+            EspritConstants.espStockAlignmentType heightType,
+            bool autoSize, double length, double width, double height)
+        {
+            EspritConstants.STOCKALIGNMENT lengthAlignment = stock.get_LengthAlignment();
+            lengthAlignment.AlignmentType = lengthType;
+            if (!autoSize) lengthAlignment.Size = length;
+            stock.set_LengthAlignment(lengthAlignment);
+
+            EspritConstants.STOCKALIGNMENT widthAlignment = stock.get_WidthAlignment();
+            widthAlignment.AlignmentType = widthType;
+            if (!autoSize) widthAlignment.Size = width;
+            stock.set_WidthAlignment(widthAlignment);
+
+            EspritConstants.STOCKALIGNMENT heightAlignment = stock.get_HeightAlignment();
+            heightAlignment.AlignmentType = heightType;
+            if (!autoSize) heightAlignment.Size = height;
+            stock.set_HeightAlignment(heightAlignment);
         }
 
         public void ConfigurePartAndFileStock(Esprit.Solid partSolid, string fileName)
