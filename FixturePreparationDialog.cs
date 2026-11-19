@@ -43,10 +43,12 @@ namespace EspritSolidFixture
         private readonly Panel _stockContext;
         private readonly Panel _stockParameters;
         private readonly Button _stockAutoFit;
+        private readonly Button _stockApply;
         private readonly Label[] _stockParameterLabels;
         private readonly TextBox[] _stockParameterValues;
         private readonly ComboBox[] _stockAlignments;
         private readonly Label[] _stockMarginLabels;
+        private readonly Label[] _stockMarginSecondaryLabels;
         private readonly TextBox[,] _stockMarginValues;
         private readonly TableLayoutPanel[] _stockMarginRows;
         private readonly Control _stockSolidRow;
@@ -182,7 +184,7 @@ namespace EspritSolidFixture
                 ImageAlign = ContentAlignment.MiddleLeft,
                 TextImageRelation = TextImageRelation.ImageBeforeText,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Dock = DockStyle.Bottom,
+                AutoSize = true,
                 Height = 27,
                 Margin = new Padding(0),
                 Padding = new Padding(1, 0, 0, 0),
@@ -194,43 +196,90 @@ namespace EspritSolidFixture
             _stockAutoFit.FlatAppearance.BorderSize = 0;
             _stockAutoFit.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
             _stockAutoFit.Click += AutoFitStock;
+            _stockApply = new Button
+            {
+                Text = "Aplicar definición",
+                AutoSize = true,
+                Height = 27,
+                Margin = new Padding(8, 0, 0, 0),
+                Padding = new Padding(10, 0, 10, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Cursor = Cursors.Hand
+            };
+            _stockApply.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            _stockApply.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
+            _stockApply.Click += ApplyStockDefinition;
+            var stockActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 29,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.Transparent
+            };
+            stockActions.Controls.Add(_stockAutoFit);
+            stockActions.Controls.Add(_stockApply);
             var parameterGrid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 3,
-                RowCount = 5,
+                RowCount = 1,
                 Padding = new Padding(0),
                 Margin = new Padding(0),
                 BackColor = Color.Transparent
             };
             for (int index = 0; index < 3; index++)
                 parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
-            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
-            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
-            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             _stockParameterLabels = new Label[3];
             _stockParameterValues = new TextBox[3];
             _stockAlignments = new ComboBox[3];
             _stockMarginLabels = new Label[3];
+            _stockMarginSecondaryLabels = new Label[3];
             _stockMarginValues = new TextBox[3, 2];
             _stockMarginRows = new TableLayoutPanel[3];
             for (int index = 0; index < 3; index++)
             {
+                var axisPanel = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 3,
+                    Margin = new Padding(index == 0 ? 0 : 5, 0, index == 2 ? 0 : 5, 0),
+                    Padding = new Padding(0),
+                    BackColor = Color.Transparent
+                };
+                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
+                var labelRow = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 3,
+                    RowCount = 1,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0)
+                };
+                labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+                labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
+                labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
                 _stockParameterLabels[index] = new Label
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0)
+                    Margin = new Padding(0)
                 };
                 _stockParameterValues[index] = StockDimensionInput();
                 _stockParameterValues[index].TabIndex = index;
-                _stockParameterValues[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 2);
+                _stockParameterValues[index].Margin = new Padding(0, 0, 3, 2);
                 _stockParameterValues[index].TextChanged += StockParameterOnChanged;
-                _stockAlignments[index] = StockAlignmentInput(index == 2);
+                _stockAlignments[index] = StockAlignmentInput();
                 _stockAlignments[index].TabIndex = 3 + index;
-                _stockAlignments[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0);
+                _stockAlignments[index].Margin = new Padding(0);
                 int axis = index;
                 _stockAlignments[index].SelectedIndexChanged += (s, e) =>
                 {
@@ -240,21 +289,29 @@ namespace EspritSolidFixture
                 _stockMarginLabels[index] = new Label
                 {
                     Dock = DockStyle.Fill,
-                    TextAlign = ContentAlignment.BottomLeft,
-                    Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0),
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Margin = new Padding(4, 0, 0, 0),
+                    ForeColor = Color.FromArgb(47, 55, 61)
+                };
+                _stockMarginSecondaryLabels[index] = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Margin = new Padding(4, 0, 0, 0),
                     ForeColor = Color.FromArgb(47, 55, 61)
                 };
                 _stockMarginRows[index] = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
-                    ColumnCount = 2,
+                    ColumnCount = 3,
                     RowCount = 1,
-                    Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0),
+                    Margin = new Padding(0),
                     Padding = new Padding(0),
                     BackColor = Color.Transparent
                 };
-                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
+                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
+                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
                 for (int marginIndex = 0; marginIndex < 2; marginIndex++)
                 {
                     TextBox margin = StockDimensionInput();
@@ -265,16 +322,19 @@ namespace EspritSolidFixture
                         : new Padding(3, 0, 0, 0);
                     margin.TextChanged += StockParameterOnChanged;
                     _stockMarginValues[index, marginIndex] = margin;
-                    _stockMarginRows[index].Controls.Add(margin, marginIndex, 0);
+                    _stockMarginRows[index].Controls.Add(margin, marginIndex + 1, 0);
                 }
-                parameterGrid.Controls.Add(_stockParameterLabels[index], index, 0);
-                parameterGrid.Controls.Add(_stockParameterValues[index], index, 1);
-                parameterGrid.Controls.Add(_stockAlignments[index], index, 2);
-                parameterGrid.Controls.Add(_stockMarginLabels[index], index, 3);
-                parameterGrid.Controls.Add(_stockMarginRows[index], index, 4);
+                labelRow.Controls.Add(_stockParameterLabels[index], 0, 0);
+                labelRow.Controls.Add(_stockMarginLabels[index], 1, 0);
+                labelRow.Controls.Add(_stockMarginSecondaryLabels[index], 2, 0);
+                axisPanel.Controls.Add(labelRow, 0, 0);
+                _stockMarginRows[index].Controls.Add(_stockParameterValues[index], 0, 0);
+                axisPanel.Controls.Add(_stockMarginRows[index], 0, 1);
+                axisPanel.Controls.Add(_stockAlignments[index], 0, 2);
+                parameterGrid.Controls.Add(axisPanel, index, 0);
             }
             _stockParameters.Controls.Add(parameterGrid);
-            _stockParameters.Controls.Add(_stockAutoFit);
+            _stockParameters.Controls.Add(stockActions);
             _stockBox = SingleSelectionBox();
             _stockBox.AccessibleName = "Sólido de bruto";
             _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
@@ -1127,6 +1187,7 @@ namespace EspritSolidFixture
             };
             choice.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             choice.CheckedChanged += StockChoiceOnCheckedChanged;
+            choice.Click += (s, e) => ExpandStockEditor();
             return choice;
         }
 
@@ -1142,7 +1203,7 @@ namespace EspritSolidFixture
             };
         }
 
-        private static ComboBox StockAlignmentInput(bool baseDefault)
+        private static ComboBox StockAlignmentInput()
         {
             var input = new ComboBox
             {
@@ -1157,7 +1218,7 @@ namespace EspritSolidFixture
                 "Alinear a la derecha",
                 "Izquierda Derecha Márgenes"
             });
-            input.SelectedIndex = baseDefault ? 2 : 0;
+            input.SelectedIndex = 0;
             return input;
         }
 
@@ -1401,26 +1462,31 @@ namespace EspritSolidFixture
             string dimensionName = _stockMode == StockMode.Bar
                 ? (index == 0 ? "Diámetro exterior" : index == 1 ? "Diámetro interior" : "Longitud Z")
                 : (index == 0 ? "Longitud X" : index == 1 ? "Anchura Y" : "Altura Z");
-            _stockParameterLabels[index].Text = doubleMargin
-                ? "Márgenes del eje"
-                : dimensionName;
+            _stockParameterLabels[index].Text = dimensionName;
             _stockParameterValues[index].Visible = !doubleMargin;
             _stockMarginLabels[index].Visible = showMargins;
-            _stockMarginRows[index].Visible = showMargins;
-            _stockMarginLabels[index].Text = doubleMargin
-                ? "Márgenes: izquierdo / derecho"
-                : alignment == 1 ? "Margen izquierdo" : "Margen derecho";
+            _stockMarginSecondaryLabels[index].Visible = doubleMargin;
+            _stockMarginLabels[index].Text = alignment == 2
+                ? "Margen derecho"
+                : "Margen izquierdo";
+            _stockMarginSecondaryLabels[index].Text = "Margen derecho";
 
-            _stockMarginRows[index].ColumnStyles[0].Width = doubleMargin ? 50 : 100;
-            _stockMarginRows[index].ColumnStyles[1].Width = doubleMargin ? 50 : 0;
+            float dimensionWidth = doubleMargin ? 0 : showMargins ? 64 : 100;
+            float firstMarginWidth = doubleMargin ? 50 : showMargins ? 36 : 0;
+            float secondMarginWidth = doubleMargin ? 50 : 0;
+            _stockMarginRows[index].ColumnStyles[0].Width = dimensionWidth;
+            _stockMarginRows[index].ColumnStyles[1].Width = firstMarginWidth;
+            _stockMarginRows[index].ColumnStyles[2].Width = secondMarginWidth;
+            var labelRow = (TableLayoutPanel)_stockMarginLabels[index].Parent;
+            labelRow.ColumnStyles[0].Width = dimensionWidth;
+            labelRow.ColumnStyles[1].Width = firstMarginWidth;
+            labelRow.ColumnStyles[2].Width = secondMarginWidth;
+            _stockMarginValues[index, 0].Visible = showMargins;
             _stockMarginValues[index, 1].Visible = doubleMargin;
             _stockMarginValues[index, 0].Margin = doubleMargin
                 ? new Padding(0, 0, 3, 0)
                 : new Padding(0);
-
-            bool anyMargins = Enumerable.Range(0, 3).Any(axis =>
-                _stockAlignments[axis].Visible && _stockAlignments[axis].SelectedIndex > 0);
-            _stockContext.Height = anyMargins ? 159 : 111;
+            _stockContext.Height = 111;
         }
 
         private void AutoFitStock(object sender, EventArgs e)
@@ -1433,6 +1499,26 @@ namespace EspritSolidFixture
             }
             AutoFitStockValues();
             RefreshState();
+        }
+
+        private void ApplyStockDefinition(object sender, EventArgs e)
+        {
+            PrepareForExtensionCommand();
+            if (!IsStockReady())
+            {
+                SetValidationStatus("Revise las medidas y los márgenes del bruto.", false);
+                return;
+            }
+            _stockContext.Visible = false;
+            SetValidationStatus(
+                "Bruto definido. Pulse de nuevo Bloque o Barra para editarlo.", true);
+        }
+
+        private void ExpandStockEditor()
+        {
+            if (_stockMode != StockMode.Block && _stockMode != StockMode.Bar) return;
+            _stockContext.Visible = true;
+            UpdateStockModeUi();
         }
 
         private void AutoFitStockValues()
@@ -2863,6 +2949,51 @@ namespace EspritSolidFixture
             public string NewEspritPath { get; set; }
             public string NewMachinePath { get; set; }
             public Esprit.Solid SelectedPart { get; set; }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            bool forward = keyData == Keys.Tab;
+            bool backward = keyData == (Keys.Shift | Keys.Tab);
+            if (forward || backward)
+            {
+                Control focused = FindFocusedControl(this);
+                var numericFields = new List<TextBox>();
+                for (int index = 0; index < 3; index++)
+                {
+                    if (_stockParameterValues[index].Visible)
+                        numericFields.Add(_stockParameterValues[index]);
+                }
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    for (int margin = 0; margin < 2; margin++)
+                    {
+                        if (_stockMarginValues[axis, margin].Visible)
+                            numericFields.Add(_stockMarginValues[axis, margin]);
+                    }
+                }
+                int current = numericFields.IndexOf(focused as TextBox);
+                if (current >= 0 && numericFields.Count > 1)
+                {
+                    int next = (current + (forward ? 1 : -1) + numericFields.Count) %
+                               numericFields.Count;
+                    numericFields[next].Focus();
+                    numericFields[next].SelectAll();
+                    return true;
+                }
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private static Control FindFocusedControl(Control parent)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                if (!child.ContainsFocus) continue;
+                Control nested = FindFocusedControl(child);
+                return nested ?? child;
+            }
+            return parent.Focused ? parent : null;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
