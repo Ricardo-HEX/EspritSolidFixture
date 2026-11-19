@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -41,9 +42,9 @@ namespace EspritSolidFixture
         private readonly Control _stockChoices;
         private readonly Panel _stockContext;
         private readonly Panel _stockParameters;
-        private readonly CheckBox _stockAutoSize;
+        private readonly Button _stockAutoFit;
         private readonly Label[] _stockParameterLabels;
-        private readonly NumericUpDown[] _stockParameterValues;
+        private readonly TextBox[] _stockParameterValues;
         private readonly ComboBox[] _stockAlignments;
         private readonly Control _stockSolidRow;
         private readonly Control _stockFileRow;
@@ -171,16 +172,25 @@ namespace EspritSolidFixture
                 BackColor = Color.FromArgb(246, 248, 249),
                 Padding = new Padding(10, 5, 10, 5)
             };
-            _stockAutoSize = new CheckBox
+            _stockAutoFit = new Button
             {
-                Text = "Ajustar a la pieza",
-                Checked = true,
-                Dock = DockStyle.Top,
-                Height = 25,
+                Text = "Ajuste automático",
+                Image = CreateAutoFitIcon(),
+                ImageAlign = ContentAlignment.MiddleLeft,
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Dock = DockStyle.Bottom,
+                Height = 27,
                 Margin = new Padding(0),
-                ForeColor = Color.FromArgb(47, 55, 61)
+                Padding = new Padding(1, 0, 0, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(246, 248, 249),
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Cursor = Cursors.Hand
             };
-            _stockAutoSize.CheckedChanged += StockParameterOnChanged;
+            _stockAutoFit.FlatAppearance.BorderSize = 0;
+            _stockAutoFit.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
+            _stockAutoFit.Click += AutoFitStock;
             var parameterGrid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -196,7 +206,7 @@ namespace EspritSolidFixture
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
             _stockParameterLabels = new Label[3];
-            _stockParameterValues = new NumericUpDown[3];
+            _stockParameterValues = new TextBox[3];
             _stockAlignments = new ComboBox[3];
             for (int index = 0; index < 3; index++)
             {
@@ -206,9 +216,9 @@ namespace EspritSolidFixture
                     TextAlign = ContentAlignment.MiddleLeft,
                     Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0)
                 };
-                _stockParameterValues[index] = StockDimensionInput(index == 1);
+                _stockParameterValues[index] = StockDimensionInput();
                 _stockParameterValues[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 2);
-                _stockParameterValues[index].ValueChanged += StockParameterOnChanged;
+                _stockParameterValues[index].TextChanged += StockParameterOnChanged;
                 _stockAlignments[index] = StockAlignmentInput(index == 2);
                 _stockAlignments[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0);
                 _stockAlignments[index].SelectedIndexChanged += StockParameterOnChanged;
@@ -217,7 +227,7 @@ namespace EspritSolidFixture
                 parameterGrid.Controls.Add(_stockAlignments[index], index, 2);
             }
             _stockParameters.Controls.Add(parameterGrid);
-            _stockParameters.Controls.Add(_stockAutoSize);
+            _stockParameters.Controls.Add(_stockAutoFit);
             _stockBox = SingleSelectionBox();
             _stockBox.AccessibleName = "Sólido de bruto";
             _stockBox.MouseDown += (s, e) => ActivateWindowSelection(SelectionRole.Stock);
@@ -1073,18 +1083,15 @@ namespace EspritSolidFixture
             return choice;
         }
 
-        private static NumericUpDown StockDimensionInput(bool allowZero)
+        private static TextBox StockDimensionInput()
         {
-            return new NumericUpDown
+            return new TextBox
             {
                 Dock = DockStyle.Fill,
-                DecimalPlaces = 2,
-                Minimum = allowZero ? 0M : 0.01M,
-                Maximum = 1000000M,
-                Increment = 0.5M,
-                ThousandsSeparator = false,
+                Text = "0,00",
                 TextAlign = HorizontalAlignment.Right,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                MaxLength = 16
             };
         }
 
@@ -1096,8 +1103,14 @@ namespace EspritSolidFixture
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 FlatStyle = FlatStyle.System
             };
-            input.Items.AddRange(new object[] { "Centrada", "Desde mínimo", "Desde máximo" });
-            input.SelectedIndex = baseDefault ? 1 : 0;
+            input.Items.AddRange(new object[]
+            {
+                "Centrada",
+                "Alinear a la izquierda",
+                "Alinear a la derecha",
+                "Izquierda Derecha Márgenes"
+            });
+            input.SelectedIndex = baseDefault ? 2 : 0;
             return input;
         }
 
@@ -1312,8 +1325,7 @@ namespace EspritSolidFixture
                 _stockAlignments[1].Visible = block;
                 _stockAlignments[2].Visible = true;
                 _stockParameters.BringToFront();
-                UpdateAutomaticStockDimensions();
-                UpdateStockParameterEnabledState();
+                AutoFitStockValues();
             }
             else if (solid) _stockSolidRow.BringToFront();
             else if (file)
@@ -1325,28 +1337,31 @@ namespace EspritSolidFixture
         private void StockParameterOnChanged(object sender, EventArgs e)
         {
             if (_initializing || _updatingStockParameters) return;
-            if (ReferenceEquals(sender, _stockAutoSize) && _stockAutoSize.Checked)
-                UpdateAutomaticStockDimensions();
-            UpdateStockParameterEnabledState();
             RefreshState();
         }
 
-        private void UpdateStockParameterEnabledState()
+        private void AutoFitStock(object sender, EventArgs e)
         {
-            bool manual = !_stockAutoSize.Checked;
-            foreach (NumericUpDown value in _stockParameterValues) value.Enabled = manual;
+            PrepareForExtensionCommand();
+            if (_part?.Solid == null)
+            {
+                SetValidationStatus("Seleccione primero el sólido de pieza.", false);
+                return;
+            }
+            AutoFitStockValues();
+            RefreshState();
         }
 
-        private void UpdateAutomaticStockDimensions()
+        private void AutoFitStockValues()
         {
-            if (!_stockAutoSize.Checked || _part?.Solid == null) return;
+            if (_part?.Solid == null) return;
             _updatingStockParameters = true;
             try
             {
                 var bounds = GetBounds(_part.Solid);
-                decimal x = ToDimension(bounds.MaximumX - bounds.MinimumX);
-                decimal y = ToDimension(bounds.MaximumY - bounds.MinimumY);
-                decimal z = ToDimension(bounds.MaximumZ - bounds.MinimumZ);
+                double x = ToDimension(bounds.MaximumX - bounds.MinimumX);
+                double y = ToDimension(bounds.MaximumY - bounds.MinimumY);
+                double z = ToDimension(bounds.MaximumZ - bounds.MinimumZ);
                 if (_stockMode == StockMode.Block)
                 {
                     SetStockValue(0, x);
@@ -1356,20 +1371,20 @@ namespace EspritSolidFixture
                 else if (_stockMode == StockMode.Bar)
                 {
                     SetStockValue(0, Math.Max(x, y));
-                    SetStockValue(1, 0M);
+                    SetStockValue(1, 0.0);
                     SetStockValue(2, z);
                 }
             }
             finally { _updatingStockParameters = false; }
         }
 
-        private static decimal ToDimension(double value) =>
-            Math.Max(0.01M, Math.Round(Convert.ToDecimal(Math.Abs(value)), 2));
+        private static double ToDimension(double value) =>
+            Math.Max(0.01, Math.Round(Math.Abs(value), 2));
 
-        private void SetStockValue(int index, decimal value)
+        private void SetStockValue(int index, double value)
         {
-            NumericUpDown input = _stockParameterValues[index];
-            input.Value = Math.Min(input.Maximum, Math.Max(input.Minimum, value));
+            _stockParameterValues[index].Text =
+                value.ToString("0.00", CultureInfo.CurrentCulture);
         }
 
         private void BrowseStockFile(object sender, EventArgs e)
@@ -1815,8 +1830,6 @@ namespace EspritSolidFixture
         {
             RefreshSingleBox(_partBox, _part);
             RefreshSingleBox(_stockBox, _stock);
-            if (_stockAutoSize != null && _stockAutoSize.Checked)
-                UpdateAutomaticStockDimensions();
 
             _fixtureBox.BeginUpdate();
             _fixtureBox.Items.Clear();
@@ -1832,8 +1845,6 @@ namespace EspritSolidFixture
             StyleCombineButton();
 
             string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
-            bool hasMounting = _fixtures.Count > 0 ||
-                               _mountingElements.Any(x => x.Type == MountingElementType.Accessory);
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
@@ -1844,13 +1855,11 @@ namespace EspritSolidFixture
             bool ready = (_destinationFile.Checked
                     ? newFileReady
                     : reusePreviousPart || definePartAndStock) &&
-                hasMounting && folder != null;
+                folder != null;
             _accept.Enabled = ready && !_fixtureSelectionPanel.Visible;
 
             if (_fixtureSelectionPanel.Visible)
                 SetValidationStatus("Termine la selección de utillajes para continuar.", false);
-            else if (!hasMounting)
-                SetValidationStatus("Añada un accesorio o seleccione al menos un utillaje.", false);
             else if (_destinationFile.Checked && !File.Exists(_newMachinePath))
                 SetValidationStatus("Seleccione la máquina del nuevo archivo ESPRIT.", false);
             else if (_destinationFile.Checked && !(_part != null || HasExistingPart()))
@@ -1986,13 +1995,27 @@ namespace EspritSolidFixture
         private bool IsStockReady()
         {
             if (_stockMode == StockMode.Block)
-                return _stockAutoSize.Checked || _stockParameterValues.All(x => x.Value > 0);
+                return TryGetStockValue(0, out double length) && length > 0 &&
+                       TryGetStockValue(1, out double width) && width > 0 &&
+                       TryGetStockValue(2, out double height) && height > 0;
             if (_stockMode == StockMode.Bar)
-                return (_stockAutoSize.Checked ||
-                        (_stockParameterValues[0].Value > 0 && _stockParameterValues[2].Value > 0)) &&
-                       _stockParameterValues[1].Value < _stockParameterValues[0].Value;
+                return TryGetStockValue(0, out double outerDiameter) && outerDiameter > 0 &&
+                       TryGetStockValue(1, out double innerDiameter) && innerDiameter >= 0 &&
+                       TryGetStockValue(2, out double barLength) && barLength > 0 &&
+                       innerDiameter < outerDiameter;
             return (_stockMode == StockMode.Solid && _stock != null) ||
                    (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+        }
+
+        private bool TryGetStockValue(int index, out double value)
+        {
+            value = 0.0;
+            string text = _stockParameterValues[index].Text.Trim();
+            bool parsed = double.TryParse(text, NumberStyles.Float,
+                              CultureInfo.CurrentCulture, out value) ||
+                          double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
+                              CultureInfo.InvariantCulture, out value);
+            return parsed && !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
@@ -2042,8 +2065,6 @@ namespace EspritSolidFixture
         {
             EndSelectionMode(false);
             string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
-            bool hasMounting = _fixtures.Count > 0 ||
-                               _mountingElements.Any(x => x.Type == MountingElementType.Accessory);
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool stockReady = IsStockReady();
             bool definePartAndStock = _part != null && stockReady;
@@ -2052,7 +2073,7 @@ namespace EspritSolidFixture
             bool newFileReady = newFile && (_part != null || HasExistingPart()) &&
                                 File.Exists(_newMachinePath) && newEspritPath != null;
             if ((newFile ? !newFileReady : !reusePreviousPart && !definePartAndStock) ||
-                !hasMounting || folder == null)
+                folder == null)
                 return;
             IReadOnlyList<string> paths = Array.Empty<string>();
             double mountingStackHeight = 0.0;
@@ -2114,19 +2135,23 @@ namespace EspritSolidFixture
                 if (reusePreviousPart)
                     assembler.ValidateExistingWorkpiece();
                 else if (_stockMode == StockMode.Block)
+                {
+                    TryGetStockValue(0, out double length);
+                    TryGetStockValue(1, out double width);
+                    TryGetStockValue(2, out double height);
                     assembler.ConfigurePartAndBlockStock(
-                        _part.Solid, _stockAutoSize.Checked,
-                        Convert.ToDouble(_stockParameterValues[0].Value),
-                        Convert.ToDouble(_stockParameterValues[1].Value),
-                        Convert.ToDouble(_stockParameterValues[2].Value),
+                        _part.Solid, false, length, width, height,
                         GetStockAlignment(0), GetStockAlignment(1), GetStockAlignment(2));
+                }
                 else if (_stockMode == StockMode.Bar)
+                {
+                    TryGetStockValue(0, out double outerDiameter);
+                    TryGetStockValue(1, out double innerDiameter);
+                    TryGetStockValue(2, out double barLength);
                     assembler.ConfigurePartAndBarStock(
-                        _part.Solid, _stockAutoSize.Checked,
-                        Convert.ToDouble(_stockParameterValues[0].Value),
-                        Convert.ToDouble(_stockParameterValues[1].Value),
-                        Convert.ToDouble(_stockParameterValues[2].Value),
+                        _part.Solid, false, outerDiameter, innerDiameter, barLength,
                         GetStockAlignment(2));
+                }
                 else if (_stockMode == StockMode.Solid)
                     assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);
                 else if (_stockMode == StockMode.File)
@@ -2146,9 +2171,11 @@ namespace EspritSolidFixture
             switch (_stockAlignments[index].SelectedIndex)
             {
                 case 1:
-                    return EspritConstants.espStockAlignmentType.espStockAlignmentTypeNegative;
-                case 2:
                     return EspritConstants.espStockAlignmentType.espStockAlignmentTypePositive;
+                case 2:
+                    return EspritConstants.espStockAlignmentType.espStockAlignmentTypeNegative;
+                case 3:
+                    return EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins;
                 default:
                     return EspritConstants.espStockAlignmentType.espStockAlignmentTypeCentered;
             }
@@ -2298,7 +2325,7 @@ namespace EspritSolidFixture
             });
             panel.Controls.Add(new Label
             {
-                Text = "Seleccione pieza, bruto y uno o varios sólidos de utillaje.",
+                Text = "Seleccione la pieza y el bruto, y añada los elementos que necesite al montaje.",
                 Dock = DockStyle.Bottom,
                 Height = 21,
                 Padding = new Padding(10, 0, 0, 0),
@@ -2462,6 +2489,25 @@ namespace EspritSolidFixture
                         graphics.DrawLine(plus, 21, 16, 29, 16);
                     }
                 }
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateAutoFitIcon()
+        {
+            var bitmap = new Bitmap(18, 18);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.FromArgb(91, 100, 106), 1.4F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                graphics.DrawLine(pen, 2, 7, 2, 3);
+                graphics.DrawLine(pen, 2, 3, 6, 3);
+                graphics.DrawLine(pen, 12, 3, 16, 3);
+                graphics.DrawLine(pen, 16, 3, 16, 7);
+                graphics.DrawLine(pen, 2, 11, 2, 15);
+                graphics.DrawLine(pen, 2, 15, 6, 15);
+                graphics.DrawLine(pen, 12, 15, 16, 15);
+                graphics.DrawLine(pen, 16, 15, 16, 11);
             }
             return bitmap;
         }

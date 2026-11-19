@@ -147,8 +147,6 @@ namespace EspritSolidFixture
             var paths = fixturePaths.Where(File.Exists).ToList();
             var bases = (baseElements ?? Enumerable.Empty<MountingElementSpec>())
                 .Where(item => item != null && File.Exists(item.FileName)).ToList();
-            if (paths.Count == 0 && !bases.Any(x => x.Type == MountingElementType.Accessory))
-                throw new InvalidOperationException("No hay accesorios ni archivos GDML para montar.");
             if (string.IsNullOrWhiteSpace(machinePath) || !File.Exists(machinePath))
                 throw new FileNotFoundException("No se encontró la máquina seleccionada.", machinePath);
             if (string.IsNullOrWhiteSpace(newEspritPath))
@@ -374,8 +372,6 @@ namespace EspritSolidFixture
             var paths = fixturePaths.Where(File.Exists).ToList();
             var bases = (baseElements ?? Enumerable.Empty<MountingElementSpec>())
                 .Where(item => item != null && File.Exists(item.FileName)).ToList();
-            if (paths.Count == 0 && !bases.Any(x => x.Type == MountingElementType.Accessory))
-                throw new InvalidOperationException("No hay accesorios ni archivos GDML para montar.");
             // EndEdit invalida algunos wrappers COM cuando la pieza se crea desde cero.
             // Se obtiene una referencia nueva justo antes de editar la máquina.
             Esprit.Workpiece workpiece = _document.Workpieces[1];
@@ -451,7 +447,7 @@ namespace EspritSolidFixture
                     mountingItems = fixture.MachineItems;
                 }
 
-                if (rotateAssembly)
+                if (rotateAssembly && rootFixture != null)
                 {
                     step = "girar el montaje 180 grados sobre Y y después sobre Z";
                     rootFixture.YRotation = 180.0;
@@ -462,6 +458,13 @@ namespace EspritSolidFixture
 
                 step = "crear la instancia de pieza sobre el accesorio";
                 Esprit.WorkpieceInstance instance = mountingItems.AddWorkpieceInstance();
+                if (rotateAssembly && rootFixture == null)
+                {
+                    step = "girar la pieza 180 grados sobre Y y después sobre Z";
+                    instance.YRotation = 180.0;
+                    instance.ZRotation = 180.0;
+                    instance.ZTranslation = instance.ZTranslation + mountingStackHeight;
+                }
                 // AddWorkpieceInstance enlaza automáticamente la primera pieza de
                 // trabajo. Reasignar PartWorkpiece después de crearla desde cero
                 // provoca "objeto gráfico no válido" en ESPRIT.
