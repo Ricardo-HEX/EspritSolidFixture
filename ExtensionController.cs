@@ -19,6 +19,7 @@ namespace EspritSolidFixture
         private readonly Icon _icon;
         private IRibbonItems _homeItems;
         private FixturePreparationDialog _dialog;
+        private bool _tooltipsLoaded;
         private bool _disposed;
 
         public ExtensionController(Esprit.Application app)
@@ -27,7 +28,6 @@ namespace EspritSolidFixture
             _ribbon = (IRibbon)app.Ribbon;
             _icon = LoadFixtureIcon();
             _ribbon.OnButtonClick += OnButtonClick;
-            LoadTooltips();
 
             _startupTimer = new Timer { Interval = 500 };
             _startupTimer.Tick += StartupTimerOnTick;
@@ -53,6 +53,7 @@ namespace EspritSolidFixture
                 if (!_homeItems.Contains(ButtonKey))
                     _homeItems.AddButton(ButtonKey, "Preparación de utillaje", true, _icon);
 
+                LoadTooltips();
                 _startupTimer.Stop();
             }
             catch (Exception ex) { Log("No se pudo añadir el botón a Inicio: " + ex.Message); }
@@ -190,11 +191,16 @@ namespace EspritSolidFixture
 
         private void LoadTooltips()
         {
+            if (_tooltipsLoaded) return;
             try
             {
                 string folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string file = Path.Combine(folder ?? string.Empty, "EspritSolidFixture.Tooltips.xml");
-                if (File.Exists(file)) _ribbon.LoadToolTipConfiguration(file);
+                if (File.Exists(file))
+                {
+                    _ribbon.LoadToolTipConfiguration(file);
+                    _tooltipsLoaded = true;
+                }
             }
             catch (Exception ex) { Log("No se pudo cargar la descripción del botón: " + ex.Message); }
         }

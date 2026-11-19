@@ -55,7 +55,7 @@ namespace EspritSolidFixture
         private readonly RadioButton _destinationNew;
         private readonly RadioButton _destinationFile;
         private readonly Panel _newFilePanel;
-        private Label _machinePathText;
+        private TextBox _machinePathText;
         private TextBox _espritFileName;
         private string _newOutputDirectory;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 10000, InitialDelay = 300 };
@@ -1057,15 +1057,14 @@ namespace EspritSolidFixture
             fields.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
             fields.Controls.Add(NewFileFieldLabel("Máquina"), 0, 0);
-            _machinePathText = new Label
+            _machinePathText = new TextBox
             {
                 Text = "Seleccione una máquina .mprj",
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
+                ReadOnly = true,
+                TabStop = false,
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
-                Padding = new Padding(7, 0, 4, 0),
-                AutoEllipsis = true,
                 Margin = new Padding(0, 2, 4, 2)
             };
             fields.Controls.Add(_machinePathText, 1, 0);
