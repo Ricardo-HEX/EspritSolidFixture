@@ -46,6 +46,9 @@ namespace EspritSolidFixture
         private readonly Label[] _stockParameterLabels;
         private readonly TextBox[] _stockParameterValues;
         private readonly ComboBox[] _stockAlignments;
+        private readonly Label[] _stockMarginLabels;
+        private readonly TextBox[,] _stockMarginValues;
+        private readonly TableLayoutPanel[] _stockMarginRows;
         private readonly Control _stockSolidRow;
         private readonly Control _stockFileRow;
         private readonly Label _stockFileText;
@@ -195,7 +198,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 3,
-                RowCount = 3,
+                RowCount = 5,
                 Padding = new Padding(0),
                 Margin = new Padding(0),
                 BackColor = Color.Transparent
@@ -205,9 +208,14 @@ namespace EspritSolidFixture
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
+            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+            parameterGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
             _stockParameterLabels = new Label[3];
             _stockParameterValues = new TextBox[3];
             _stockAlignments = new ComboBox[3];
+            _stockMarginLabels = new Label[3];
+            _stockMarginValues = new TextBox[3, 2];
+            _stockMarginRows = new TableLayoutPanel[3];
             for (int index = 0; index < 3; index++)
             {
                 _stockParameterLabels[index] = new Label
@@ -217,14 +225,53 @@ namespace EspritSolidFixture
                     Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0)
                 };
                 _stockParameterValues[index] = StockDimensionInput();
+                _stockParameterValues[index].TabIndex = index;
                 _stockParameterValues[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 2);
                 _stockParameterValues[index].TextChanged += StockParameterOnChanged;
                 _stockAlignments[index] = StockAlignmentInput(index == 2);
+                _stockAlignments[index].TabIndex = 3 + index;
                 _stockAlignments[index].Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0);
-                _stockAlignments[index].SelectedIndexChanged += StockParameterOnChanged;
+                int axis = index;
+                _stockAlignments[index].SelectedIndexChanged += (s, e) =>
+                {
+                    UpdateStockMarginUi(axis);
+                    StockParameterOnChanged(s, e);
+                };
+                _stockMarginLabels[index] = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.BottomLeft,
+                    Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0),
+                    ForeColor = Color.FromArgb(47, 55, 61)
+                };
+                _stockMarginRows[index] = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 2,
+                    RowCount = 1,
+                    Margin = new Padding(index == 0 ? 0 : 4, 0, 4, 0),
+                    Padding = new Padding(0),
+                    BackColor = Color.Transparent
+                };
+                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+                _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+                for (int marginIndex = 0; marginIndex < 2; marginIndex++)
+                {
+                    TextBox margin = StockDimensionInput();
+                    margin.Text = "0,00";
+                    margin.TabIndex = index * 2 + marginIndex;
+                    margin.Margin = marginIndex == 0
+                        ? new Padding(0, 0, 3, 0)
+                        : new Padding(3, 0, 0, 0);
+                    margin.TextChanged += StockParameterOnChanged;
+                    _stockMarginValues[index, marginIndex] = margin;
+                    _stockMarginRows[index].Controls.Add(margin, marginIndex, 0);
+                }
                 parameterGrid.Controls.Add(_stockParameterLabels[index], index, 0);
                 parameterGrid.Controls.Add(_stockParameterValues[index], index, 1);
                 parameterGrid.Controls.Add(_stockAlignments[index], index, 2);
+                parameterGrid.Controls.Add(_stockMarginLabels[index], index, 3);
+                parameterGrid.Controls.Add(_stockMarginRows[index], index, 4);
             }
             _stockParameters.Controls.Add(parameterGrid);
             _stockParameters.Controls.Add(_stockAutoFit);
@@ -1324,6 +1371,8 @@ namespace EspritSolidFixture
                 _stockAlignments[0].Visible = block;
                 _stockAlignments[1].Visible = block;
                 _stockAlignments[2].Visible = true;
+                for (int index = 0; index < 3; index++)
+                    UpdateStockMarginUi(index);
                 _stockParameters.BringToFront();
                 AutoFitStockValues();
             }
@@ -1338,6 +1387,40 @@ namespace EspritSolidFixture
         {
             if (_initializing || _updatingStockParameters) return;
             RefreshState();
+        }
+
+        private void UpdateStockMarginUi(int index)
+        {
+            if (_stockAlignments == null || _stockMarginRows == null) return;
+            bool alignmentVisible = _stockAlignments[index].Visible;
+            int alignment = _stockAlignments[index].SelectedIndex;
+            bool singleMargin = alignmentVisible && (alignment == 1 || alignment == 2);
+            bool doubleMargin = alignmentVisible && alignment == 3;
+            bool showMargins = singleMargin || doubleMargin;
+
+            string dimensionName = _stockMode == StockMode.Bar
+                ? (index == 0 ? "Diámetro exterior" : index == 1 ? "Diámetro interior" : "Longitud Z")
+                : (index == 0 ? "Longitud X" : index == 1 ? "Anchura Y" : "Altura Z");
+            _stockParameterLabels[index].Text = doubleMargin
+                ? "Márgenes del eje"
+                : dimensionName;
+            _stockParameterValues[index].Visible = !doubleMargin;
+            _stockMarginLabels[index].Visible = showMargins;
+            _stockMarginRows[index].Visible = showMargins;
+            _stockMarginLabels[index].Text = doubleMargin
+                ? "Márgenes: izquierdo / derecho"
+                : alignment == 1 ? "Margen izquierdo" : "Margen derecho";
+
+            _stockMarginRows[index].ColumnStyles[0].Width = doubleMargin ? 50 : 100;
+            _stockMarginRows[index].ColumnStyles[1].Width = doubleMargin ? 50 : 0;
+            _stockMarginValues[index, 1].Visible = doubleMargin;
+            _stockMarginValues[index, 0].Margin = doubleMargin
+                ? new Padding(0, 0, 3, 0)
+                : new Padding(0);
+
+            bool anyMargins = Enumerable.Range(0, 3).Any(axis =>
+                _stockAlignments[axis].Visible && _stockAlignments[axis].SelectedIndex > 0);
+            _stockContext.Height = anyMargins ? 159 : 111;
         }
 
         private void AutoFitStock(object sender, EventArgs e)
@@ -1995,16 +2078,27 @@ namespace EspritSolidFixture
         private bool IsStockReady()
         {
             if (_stockMode == StockMode.Block)
-                return TryGetStockValue(0, out double length) && length > 0 &&
-                       TryGetStockValue(1, out double width) && width > 0 &&
-                       TryGetStockValue(2, out double height) && height > 0;
+                return IsStockAxisReady(0) && IsStockAxisReady(1) && IsStockAxisReady(2);
             if (_stockMode == StockMode.Bar)
                 return TryGetStockValue(0, out double outerDiameter) && outerDiameter > 0 &&
                        TryGetStockValue(1, out double innerDiameter) && innerDiameter >= 0 &&
-                       TryGetStockValue(2, out double barLength) && barLength > 0 &&
-                       innerDiameter < outerDiameter;
+                       innerDiameter < outerDiameter && IsStockAxisReady(2);
             return (_stockMode == StockMode.Solid && _stock != null) ||
                    (_stockMode == StockMode.File && File.Exists(_stockFilePath));
+        }
+
+        private bool IsStockAxisReady(int index)
+        {
+            int alignment = _stockAlignments[index].SelectedIndex;
+            if (alignment != 3 &&
+                (!TryGetStockValue(index, out double size) || size <= 0))
+                return false;
+            if (alignment == 1 || alignment == 2)
+                return TryGetStockMargin(index, 0, out double margin) && margin >= 0;
+            if (alignment == 3)
+                return TryGetStockMargin(index, 0, out double left) && left >= 0 &&
+                       TryGetStockMargin(index, 1, out double right) && right >= 0;
+            return true;
         }
 
         private bool TryGetStockValue(int index, out double value)
@@ -2016,6 +2110,34 @@ namespace EspritSolidFixture
                           double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
                               CultureInfo.InvariantCulture, out value);
             return parsed && !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private bool TryGetStockMargin(int axis, int marginIndex, out double value)
+        {
+            value = 0.0;
+            string text = _stockMarginValues[axis, marginIndex].Text.Trim();
+            bool parsed = double.TryParse(text, NumberStyles.Float,
+                              CultureInfo.CurrentCulture, out value) ||
+                          double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
+                              CultureInfo.InvariantCulture, out value);
+            return parsed && !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private double GetStockMargin(int axis, bool positive)
+        {
+            int alignment = _stockAlignments[axis].SelectedIndex;
+            if (alignment == 0) return 0.0;
+            if (alignment == 3)
+            {
+                TryGetStockMargin(axis, positive ? 1 : 0, out double margin);
+                return margin;
+            }
+            if ((alignment == 1 && !positive) || (alignment == 2 && positive))
+            {
+                TryGetStockMargin(axis, 0, out double margin);
+                return margin;
+            }
+            return 0.0;
         }
 
         private void SynchronizeGraphicSelection(Esprit.Document document)
@@ -2141,7 +2263,10 @@ namespace EspritSolidFixture
                     TryGetStockValue(2, out double height);
                     assembler.ConfigurePartAndBlockStock(
                         _part.Solid, false, length, width, height,
-                        GetStockAlignment(0), GetStockAlignment(1), GetStockAlignment(2));
+                        GetStockAlignment(0), GetStockAlignment(1), GetStockAlignment(2),
+                        GetStockMargin(0, false), GetStockMargin(0, true),
+                        GetStockMargin(1, false), GetStockMargin(1, true),
+                        GetStockMargin(2, false), GetStockMargin(2, true));
                 }
                 else if (_stockMode == StockMode.Bar)
                 {
@@ -2150,7 +2275,8 @@ namespace EspritSolidFixture
                     TryGetStockValue(2, out double barLength);
                     assembler.ConfigurePartAndBarStock(
                         _part.Solid, false, outerDiameter, innerDiameter, barLength,
-                        GetStockAlignment(2));
+                        GetStockAlignment(2),
+                        GetStockMargin(2, false), GetStockMargin(2, true));
                 }
                 else if (_stockMode == StockMode.Solid)
                     assembler.ConfigurePartAndStock(_part.Solid, _stock.Solid);

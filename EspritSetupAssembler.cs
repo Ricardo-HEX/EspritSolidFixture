@@ -48,7 +48,10 @@ namespace EspritSolidFixture
             double length, double width, double height,
             EspritConstants.espStockAlignmentType lengthAlignment,
             EspritConstants.espStockAlignmentType widthAlignment,
-            EspritConstants.espStockAlignmentType heightAlignment)
+            EspritConstants.espStockAlignmentType heightAlignment,
+            double lengthNegativeMargin, double lengthPositiveMargin,
+            double widthNegativeMargin, double widthPositiveMargin,
+            double heightNegativeMargin, double heightPositiveMargin)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
             ConfigurePartCore(partSolid, workpiece =>
@@ -57,13 +60,17 @@ namespace EspritSolidFixture
                 stock.Name = "Material1";
                 if (autoSize) stock.AutoSize();
                 SetBlockAlignment(stock, lengthAlignment, widthAlignment, heightAlignment,
-                    autoSize, length, width, height);
+                    autoSize, length, width, height,
+                    lengthNegativeMargin, lengthPositiveMargin,
+                    widthNegativeMargin, widthPositiveMargin,
+                    heightNegativeMargin, heightPositiveMargin);
             });
         }
 
         public void ConfigurePartAndBarStock(Esprit.Solid partSolid, bool autoSize,
             double outsideDiameter, double insideDiameter, double length,
-            EspritConstants.espStockAlignmentType lengthAlignment)
+            EspritConstants.espStockAlignmentType lengthAlignment,
+            double lengthNegativeMargin, double lengthPositiveMargin)
         {
             if (partSolid == null) throw new ArgumentNullException(nameof(partSolid));
             ConfigurePartCore(partSolid, workpiece =>
@@ -78,7 +85,11 @@ namespace EspritSolidFixture
                 stock.InsideDiameter = autoSize ? 0.0 : insideDiameter;
                 EspritConstants.STOCKALIGNMENT alignment = stock.get_LengthAlignment();
                 alignment.AlignmentType = lengthAlignment;
-                if (!autoSize) alignment.Size = length;
+                if (!autoSize && lengthAlignment !=
+                    EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins)
+                    alignment.Size = length;
+                alignment.NegativeMargin = lengthNegativeMargin;
+                alignment.Margin = lengthPositiveMargin;
                 stock.set_LengthAlignment(alignment);
             });
         }
@@ -87,21 +98,36 @@ namespace EspritSolidFixture
             EspritConstants.espStockAlignmentType lengthType,
             EspritConstants.espStockAlignmentType widthType,
             EspritConstants.espStockAlignmentType heightType,
-            bool autoSize, double length, double width, double height)
+            bool autoSize, double length, double width, double height,
+            double lengthNegativeMargin, double lengthPositiveMargin,
+            double widthNegativeMargin, double widthPositiveMargin,
+            double heightNegativeMargin, double heightPositiveMargin)
         {
             EspritConstants.STOCKALIGNMENT lengthAlignment = stock.get_LengthAlignment();
             lengthAlignment.AlignmentType = lengthType;
-            if (!autoSize) lengthAlignment.Size = length;
+            if (!autoSize && lengthType !=
+                EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins)
+                lengthAlignment.Size = length;
+            lengthAlignment.NegativeMargin = lengthNegativeMargin;
+            lengthAlignment.Margin = lengthPositiveMargin;
             stock.set_LengthAlignment(lengthAlignment);
 
             EspritConstants.STOCKALIGNMENT widthAlignment = stock.get_WidthAlignment();
             widthAlignment.AlignmentType = widthType;
-            if (!autoSize) widthAlignment.Size = width;
+            if (!autoSize && widthType !=
+                EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins)
+                widthAlignment.Size = width;
+            widthAlignment.NegativeMargin = widthNegativeMargin;
+            widthAlignment.Margin = widthPositiveMargin;
             stock.set_WidthAlignment(widthAlignment);
 
             EspritConstants.STOCKALIGNMENT heightAlignment = stock.get_HeightAlignment();
             heightAlignment.AlignmentType = heightType;
-            if (!autoSize) heightAlignment.Size = height;
+            if (!autoSize && heightType !=
+                EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins)
+                heightAlignment.Size = height;
+            heightAlignment.NegativeMargin = heightNegativeMargin;
+            heightAlignment.Margin = heightPositiveMargin;
             stock.set_HeightAlignment(heightAlignment);
         }
 
