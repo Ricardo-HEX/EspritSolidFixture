@@ -250,7 +250,10 @@ namespace EspritSolidFixture
                     ColumnCount = 1,
                     RowCount = 3,
                     Margin = new Padding(index == 0 ? 0 : 4, 0, index == 2 ? 0 : 4, 0),
-                    Padding = new Padding(0),
+                    // Reserva el borde derecho dentro de la celda. En columnas
+                    // porcentuales WinForms puede recortar el último píxel del
+                    // TextBox y del ComboBox, especialmente en la columna central.
+                    Padding = new Padding(0, 0, 2, 0),
                     BackColor = Color.Transparent
                 };
                 axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
