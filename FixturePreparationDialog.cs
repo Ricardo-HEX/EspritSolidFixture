@@ -1488,7 +1488,7 @@ namespace EspritSolidFixture
             labelRow.ColumnStyles[2].Width = secondMarginWidth;
             _stockMarginValues[index, 0].Visible = showMargins;
             _stockMarginValues[index, 1].Visible = doubleMargin;
-            _stockParameterValues[index].Margin = new Padding(0, 0, showMargins ? 3 : 0, 2);
+            _stockParameterValues[index].Margin = new Padding(0, 0, showMargins ? 3 : 1, 2);
             _stockMarginValues[index, 0].Margin = new Padding(showMargins ? 3 : 0, 0,
                 doubleMargin ? 3 : 0, 2);
             _stockMarginValues[index, 1].Margin = new Padding(3, 0, 0, 2);
@@ -2389,9 +2389,9 @@ namespace EspritSolidFixture
             switch (_stockAlignments[index].SelectedIndex)
             {
                 case 1:
-                    return EspritConstants.espStockAlignmentType.espStockAlignmentTypePositive;
-                case 2:
                     return EspritConstants.espStockAlignmentType.espStockAlignmentTypeNegative;
+                case 2:
+                    return EspritConstants.espStockAlignmentType.espStockAlignmentTypePositive;
                 case 3:
                     return EspritConstants.espStockAlignmentType.espStockAlignmentTypeMargins;
                 default:
