@@ -175,7 +175,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(246, 248, 249),
-                Padding = new Padding(10, 5, 10, 5)
+                Padding = new Padding(10, 7, 10, 7)
             };
             _stockAutoFit = new Button
             {
@@ -183,25 +183,23 @@ namespace EspritSolidFixture
                 Image = CreateAutoFitIcon(),
                 ImageAlign = ContentAlignment.MiddleLeft,
                 TextImageRelation = TextImageRelation.ImageBeforeText,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoSize = true,
-                Height = 27,
-                Margin = new Padding(0),
-                Padding = new Padding(1, 0, 0, 0),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 4, 0),
+                Padding = new Padding(8, 0, 8, 0),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(246, 248, 249),
+                BackColor = Color.White,
                 ForeColor = Color.FromArgb(47, 55, 61),
                 Cursor = Cursors.Hand
             };
-            _stockAutoFit.FlatAppearance.BorderSize = 0;
+            _stockAutoFit.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _stockAutoFit.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
             _stockAutoFit.Click += AutoFitStock;
             _stockApply = new Button
             {
                 Text = "Aplicar definición",
-                AutoSize = true,
-                Height = 27,
-                Margin = new Padding(8, 0, 0, 0),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4, 0, 0, 0),
                 Padding = new Padding(10, 0, 10, 0),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
@@ -211,18 +209,20 @@ namespace EspritSolidFixture
             _stockApply.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _stockApply.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
             _stockApply.Click += ApplyStockDefinition;
-            var stockActions = new FlowLayoutPanel
+            var stockActions = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 29,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
+                Height = 31,
+                ColumnCount = 2,
+                RowCount = 1,
                 Margin = new Padding(0),
                 Padding = new Padding(0),
                 BackColor = Color.Transparent
             };
-            stockActions.Controls.Add(_stockAutoFit);
-            stockActions.Controls.Add(_stockApply);
+            stockActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            stockActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            stockActions.Controls.Add(_stockAutoFit, 0, 0);
+            stockActions.Controls.Add(_stockApply, 1, 0);
             var parameterGrid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -249,13 +249,13 @@ namespace EspritSolidFixture
                     Dock = DockStyle.Fill,
                     ColumnCount = 1,
                     RowCount = 3,
-                    Margin = new Padding(index == 0 ? 0 : 5, 0, index == 2 ? 0 : 5, 0),
+                    Margin = new Padding(index == 0 ? 0 : 4, 0, index == 2 ? 0 : 4, 0),
                     Padding = new Padding(0),
                     BackColor = Color.Transparent
                 };
-                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
                 axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
+                axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 29));
                 var labelRow = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -271,7 +271,9 @@ namespace EspritSolidFixture
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Margin = new Padding(0)
+                    Margin = new Padding(0),
+                    Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                    ForeColor = Color.FromArgb(47, 55, 61)
                 };
                 _stockParameterValues[index] = StockDimensionInput();
                 _stockParameterValues[index].TabIndex = index;
@@ -290,14 +292,16 @@ namespace EspritSolidFixture
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Margin = new Padding(4, 0, 0, 0),
+                    Margin = new Padding(6, 0, 0, 0),
+                    Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
                     ForeColor = Color.FromArgb(47, 55, 61)
                 };
                 _stockMarginSecondaryLabels[index] = new Label
                 {
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleLeft,
-                    Margin = new Padding(4, 0, 0, 0),
+                    Margin = new Padding(6, 0, 0, 0),
+                    Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
                     ForeColor = Color.FromArgb(47, 55, 61)
                 };
                 _stockMarginRows[index] = new TableLayoutPanel
@@ -1413,7 +1417,7 @@ namespace EspritSolidFixture
             bool parametric = _stockMode == StockMode.Block || _stockMode == StockMode.Bar;
             bool solid = _stockMode == StockMode.Solid;
             bool file = _stockMode == StockMode.File;
-            _stockContext.Height = parametric ? 111 : 46;
+            _stockContext.Height = parametric ? 130 : 46;
             _stockParameters.Visible = parametric;
             _stockSolidRow.Visible = solid;
             _stockFileRow.Visible = file;
@@ -1427,7 +1431,7 @@ namespace EspritSolidFixture
             {
                 bool block = _stockMode == StockMode.Block;
                 _stockParameterLabels[0].Text = block ? "Longitud X" : "Diámetro exterior";
-                _stockParameterLabels[1].Text = block ? "Anchura Y" : "Diámetro interior";
+                _stockParameterLabels[1].Text = block ? "Longitud Y" : "Diámetro interior";
                 _stockParameterLabels[2].Text = block ? "Altura Z" : "Longitud Z";
                 _stockAlignments[0].Visible = block;
                 _stockAlignments[1].Visible = block;
@@ -1461,18 +1465,19 @@ namespace EspritSolidFixture
 
             string dimensionName = _stockMode == StockMode.Bar
                 ? (index == 0 ? "Diámetro exterior" : index == 1 ? "Diámetro interior" : "Longitud Z")
-                : (index == 0 ? "Longitud X" : index == 1 ? "Anchura Y" : "Altura Z");
+                : (index == 0 ? "Longitud X" : index == 1 ? "Longitud Y" : "Altura Z");
             _stockParameterLabels[index].Text = dimensionName;
             _stockParameterValues[index].Visible = !doubleMargin;
+            _stockParameterLabels[index].Visible = !doubleMargin;
             _stockMarginLabels[index].Visible = showMargins;
             _stockMarginSecondaryLabels[index].Visible = doubleMargin;
             _stockMarginLabels[index].Text = alignment == 2
-                ? "Margen derecho"
-                : "Margen izquierdo";
-            _stockMarginSecondaryLabels[index].Text = "Margen derecho";
+                ? "Margen der."
+                : "Margen izq.";
+            _stockMarginSecondaryLabels[index].Text = "Margen der.";
 
-            float dimensionWidth = doubleMargin ? 0 : showMargins ? 64 : 100;
-            float firstMarginWidth = doubleMargin ? 50 : showMargins ? 36 : 0;
+            float dimensionWidth = doubleMargin ? 0 : showMargins ? 58 : 100;
+            float firstMarginWidth = doubleMargin ? 50 : showMargins ? 42 : 0;
             float secondMarginWidth = doubleMargin ? 50 : 0;
             _stockMarginRows[index].ColumnStyles[0].Width = dimensionWidth;
             _stockMarginRows[index].ColumnStyles[1].Width = firstMarginWidth;
@@ -1483,10 +1488,11 @@ namespace EspritSolidFixture
             labelRow.ColumnStyles[2].Width = secondMarginWidth;
             _stockMarginValues[index, 0].Visible = showMargins;
             _stockMarginValues[index, 1].Visible = doubleMargin;
-            _stockMarginValues[index, 0].Margin = doubleMargin
-                ? new Padding(0, 0, 3, 0)
-                : new Padding(0);
-            _stockContext.Height = 111;
+            _stockParameterValues[index].Margin = new Padding(0, 0, showMargins ? 3 : 0, 2);
+            _stockMarginValues[index, 0].Margin = new Padding(showMargins ? 3 : 0, 0,
+                doubleMargin ? 3 : 0, 2);
+            _stockMarginValues[index, 1].Margin = new Padding(3, 0, 0, 2);
+            _stockContext.Height = 130;
         }
 
         private void AutoFitStock(object sender, EventArgs e)
