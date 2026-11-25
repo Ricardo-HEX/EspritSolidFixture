@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -573,10 +574,21 @@ namespace EspritSolidFixture
             try
             {
                 XDocument document = XDocument.Load(jawFile);
-                string programFolder = Path.GetDirectoryName(
-                    typeof(Esprit.Document).Assembly.Location);
-                Assembly gdmlAssembly = Assembly.LoadFrom(
-                    Path.Combine(programFolder, "gdml.dll"));
+                Assembly gdmlAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(assembly => string.Equals(
+                        assembly.GetName().Name, "gdml",
+                        StringComparison.OrdinalIgnoreCase));
+                if (gdmlAssembly == null)
+                {
+                    string executable = Process.GetCurrentProcess().MainModule?.FileName;
+                    string programFolder = Path.GetDirectoryName(executable);
+                    string gdmlPath = Path.Combine(programFolder ?? string.Empty, "gdml.dll");
+                    if (!File.Exists(gdmlPath))
+                        throw new FileNotFoundException(
+                            "No se encontró el lector GDML en la carpeta de ESPRIT.",
+                            gdmlPath);
+                    gdmlAssembly = Assembly.LoadFrom(gdmlPath);
+                }
                 MethodInfo readFaceMesh = gdmlAssembly
                     .GetType("gdml.FaceMeshExtensions", true)
                     .GetMethod("ReadFromMemory", BindingFlags.Public | BindingFlags.Static);
