@@ -33,6 +33,14 @@
       <EmbedInteropTypes>true</EmbedInteropTypes>
       <Private>false</Private>
     </Reference>
+    <Reference Include="gdml">
+      <HintPath>C:\Program Files\Hexagon\ESPRIT EDGE\Prog\gdml.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BinarySpaces.SimNCControllerApiGfx">
+      <HintPath>C:\Program Files\Hexagon\ESPRIT EDGE\Prog\BinarySpaces.SimNCControllerApiGfx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Drawing" />

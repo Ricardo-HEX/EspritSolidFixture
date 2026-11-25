@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -170,7 +169,7 @@ namespace EspritSolidFixture
         public void CreateNewPhaseFile(IEnumerable<string> fixturePaths, string newEspritPath,
             string machinePath, Esprit.Solid selectedPart, bool rotateAssembly,
             double mountingStackHeight, double workOffsetBaseZ,
-            double gripDepth, double grippedElementTopZ, WorkZeroSpec workZero,
+            double gripDepth, WorkZeroSpec workZero,
             IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
@@ -238,8 +237,7 @@ namespace EspritSolidFixture
 
                 step = "crear el nuevo montaje";
                 MountFixturesAndWorkpiece(paths, false, rotateAssembly,
-                    mountingStackHeight, workOffsetBaseZ, gripDepth,
-                    grippedElementTopZ, workZero, bases);
+                    mountingStackHeight, workOffsetBaseZ, gripDepth, workZero, bases);
                 step = "guardar el nuevo archivo ESPRIT";
                 _document.Save();
             }
@@ -397,8 +395,7 @@ namespace EspritSolidFixture
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths,
             bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
-            double workOffsetBaseZ, double gripDepth, double grippedElementTopZ,
-            WorkZeroSpec workZero,
+            double workOffsetBaseZ, double gripDepth, WorkZeroSpec workZero,
             IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
@@ -443,8 +440,7 @@ namespace EspritSolidFixture
                 Esprit.MachineItems mountingItems = setup.MachineItems;
                 Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
-                bool applyJawGrip = false;
-                double? jawMountingPointZ = null;
+                double? pendingJawGripTranslation = null;
                 foreach (MountingElementSpec element in bases)
                 {
                     if (element.Type == MountingElementType.Accessory)
@@ -452,12 +448,11 @@ namespace EspritSolidFixture
                         step = "cargar el accesorio " + Path.GetFileName(element.FileName);
                         Esprit.Fixture accessory = mountingItems.AddFixture(element.FileName);
                         accessory.Name = Path.GetFileNameWithoutExtension(element.FileName);
-                        if (applyJawGrip)
+                        if (pendingJawGripTranslation.HasValue)
                         {
                             accessory.ZTranslation = accessory.ZTranslation +
-                                CalculateJawGripTranslation(accessory.RelativeTransformation,
-                                    grippedElementTopZ, gripDepth, jawMountingPointZ);
-                            applyJawGrip = false;
+                                pendingJawGripTranslation.Value;
+                            pendingJawGripTranslation = null;
                         }
                         if (rootFixture == null) rootFixture = accessory;
                         topFixture = accessory;
@@ -476,8 +471,8 @@ namespace EspritSolidFixture
                         // Cero permite que ESPRIT use la posición definida por el
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
-                        jawMountingPointZ = TryReadWorkpieceAdapterZ(topFixture.FileName);
-                        applyJawGrip = true;
+                        pendingJawGripTranslation =
+                            ReadJawTopZ(element.FileName) - Math.Abs(gripDepth);
                     }
                 }
                 foreach (string path in paths)
@@ -485,12 +480,11 @@ namespace EspritSolidFixture
                     step = "cargar el accesorio " + Path.GetFileName(path);
                     Esprit.Fixture fixture = mountingItems.AddFixture(path);
                     fixture.Name = Path.GetFileNameWithoutExtension(path);
-                    if (applyJawGrip)
+                    if (pendingJawGripTranslation.HasValue)
                     {
                         fixture.ZTranslation = fixture.ZTranslation +
-                            CalculateJawGripTranslation(fixture.RelativeTransformation,
-                                grippedElementTopZ, gripDepth, jawMountingPointZ);
-                        applyJawGrip = false;
+                            pendingJawGripTranslation.Value;
+                        pendingJawGripTranslation = null;
                     }
                     if (rootFixture == null) rootFixture = fixture;
                     topFixture = fixture;
@@ -508,10 +502,9 @@ namespace EspritSolidFixture
 
                 step = "crear la instancia de pieza sobre el accesorio";
                 Esprit.WorkpieceInstance instance = mountingItems.AddWorkpieceInstance();
-                if (applyJawGrip)
+                if (pendingJawGripTranslation.HasValue)
                     instance.ZTranslation = instance.ZTranslation +
-                        CalculateJawGripTranslation(instance.RelativeTransformation,
-                            grippedElementTopZ, gripDepth, jawMountingPointZ);
+                        pendingJawGripTranslation.Value;
                 if (rotateAssembly && rootFixture == null)
                 {
                     step = "girar la pieza 180 grados sobre Y y después sobre Z";
@@ -566,52 +559,36 @@ namespace EspritSolidFixture
             }
         }
 
-        private static double CalculateJawGripTranslation(
-            EspritGeometryBase.IComMatrix relativeTransformation,
-            double topZ, double gripDepth, double? adapterZ)
+        private static double ReadJawTopZ(string jawFile)
         {
-            double mountingPointZ;
-            if (adapterZ.HasValue)
-                mountingPointZ = adapterZ.Value;
-            else
-            {
-                mountingPointZ = 0.0;
-                try
-                {
-                    if (relativeTransformation?.P != null)
-                        mountingPointZ = relativeTransformation.P.Z;
-                }
-                catch { }
-            }
-            return topZ - mountingPointZ - Math.Abs(gripDepth);
-        }
-
-        private static double? TryReadWorkpieceAdapterZ(string fixtureFile)
-        {
-            if (string.IsNullOrWhiteSpace(fixtureFile) || !File.Exists(fixtureFile))
-                return null;
+            if (string.IsNullOrWhiteSpace(jawFile) || !File.Exists(jawFile))
+                throw new FileNotFoundException(
+                    "No se encontró el archivo GDML de las garras.", jawFile);
             try
             {
-                XDocument document = XDocument.Load(fixtureFile);
-                XElement fixture = document.Descendants()
-                    .FirstOrDefault(node => node.Name.LocalName == "Fixture");
-                XElement adapter = fixture?.Elements()
-                    .LastOrDefault(node => node.Name.LocalName == "WorkpieceAdapter");
-                XElement translation = adapter?.Descendants()
-                    .FirstOrDefault(node => node.Name.LocalName == "Translation");
-                string vector = translation?.Attribute("trans")?.Value;
-                if (string.IsNullOrWhiteSpace(vector)) return 0.0;
-                string[] coordinates = vector.Split((char[])null,
-                    StringSplitOptions.RemoveEmptyEntries);
-                if (coordinates.Length < 3) return null;
-                return double.TryParse(coordinates[2], NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out double z)
-                    ? z
-                    : (double?)null;
+                XDocument document = XDocument.Load(jawFile);
+                double maximumZ = double.NegativeInfinity;
+                foreach (XElement binary in document.Descendants()
+                    .Where(node => node.Name.LocalName == "Binary"))
+                {
+                    if (string.IsNullOrWhiteSpace(binary.Value)) continue;
+                    byte[] data = Convert.FromBase64String(binary.Value);
+                    BinarySpaces.SimNCCoreApi.FaceMesh mesh =
+                        gdml.FaceMeshExtensions.ReadFromMemory(data);
+                    if (mesh == null || !mesh.IsValid) continue;
+                    foreach (BinarySpaces.SimNCApiBasics.SPoint3 vertex in mesh.Vertices)
+                        maximumZ = Math.Max(maximumZ, vertex.Z);
+                }
+                if (double.IsNegativeInfinity(maximumZ))
+                    throw new InvalidDataException(
+                        "El GDML no contiene una malla de sólidos válida.");
+                return maximumZ;
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                throw new InvalidDataException(
+                    "No se pudo medir la altura de las garras desde su plano de montaje: " +
+                    ex.Message, ex);
             }
         }
 
