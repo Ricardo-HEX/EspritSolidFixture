@@ -32,6 +32,7 @@ namespace EspritSolidFixture
         private readonly Button _fixtureToolbarButton;
         private readonly Control _zeroSection;
         private readonly Panel _zeroEditorPanel;
+        private readonly TableLayoutPanel _zeroEditorLayout;
         private readonly Panel _zeroSummaryPanel;
         private readonly Panel _zeroPointRow;
         private readonly Label _zeroSummaryText;
@@ -41,6 +42,8 @@ namespace EspritSolidFixture
         private readonly Button _zeroPick;
         private readonly Button _zeroApply;
         private readonly TextBox _gripDepth;
+        private readonly Label _gripDepthLabel;
+        private readonly TableLayoutPanel _zeroOptions;
         private readonly CheckBox _createWorkPlane;
         private readonly Control _mountingFaceSection;
         private readonly Control _mountingChoices;
@@ -114,7 +117,7 @@ namespace EspritSolidFixture
             Icon = LoadEspritIcon();
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(680, 960);
+            ClientSize = new Size(680, 1020);
             MinimumSize = new Size(696, 999);
             BackColor = Color.White;
 
@@ -480,7 +483,7 @@ namespace EspritSolidFixture
             _mountingTree = new TreeView
             {
                 Dock = DockStyle.Top,
-                Height = 104,
+                Height = 92,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
                 HideSelection = false,
@@ -603,9 +606,9 @@ namespace EspritSolidFixture
             _zeroSummaryPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 42,
-                Margin = new Padding(0, 0, 0, 5),
-                Padding = new Padding(10, 0, 4, 0),
+                Height = 48,
+                Margin = new Padding(0, 0, 0, 7),
+                Padding = new Padding(12, 4, 5, 4),
                 BackColor = Color.FromArgb(246, 248, 249)
             };
             _zeroSummaryText = new Label
@@ -643,7 +646,7 @@ namespace EspritSolidFixture
                 BackColor = Color.FromArgb(246, 248, 249),
                 Visible = false
             };
-            var zeroEditorLayout = new TableLayoutPanel
+            _zeroEditorLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
@@ -652,10 +655,10 @@ namespace EspritSolidFixture
                 Padding = new Padding(0),
                 BackColor = Color.Transparent
             };
-            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+            _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             var zeroModeChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -673,7 +676,7 @@ namespace EspritSolidFixture
             _zeroManual.CheckedChanged += WorkZeroModeOnChanged;
             zeroModeChoices.Controls.Add(_zeroAutomatic, 0, 0);
             zeroModeChoices.Controls.Add(_zeroManual, 1, 0);
-            zeroEditorLayout.Controls.Add(zeroModeChoices, 0, 0);
+            _zeroEditorLayout.Controls.Add(zeroModeChoices, 0, 0);
 
             _zeroPointRow = new Panel
             {
@@ -708,30 +711,31 @@ namespace EspritSolidFixture
             _toolTip.SetToolTip(_zeroPick, "Seleccionar el cero en la vista de pieza");
             _zeroPointRow.Controls.Add(_zeroPointText);
             _zeroPointRow.Controls.Add(_zeroPick);
-            zeroEditorLayout.Controls.Add(_zeroPointRow, 0, 1);
+            _zeroEditorLayout.Controls.Add(_zeroPointRow, 0, 1);
 
-            var zeroOptions = new TableLayoutPanel
+            _zeroOptions = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 3,
                 Margin = new Padding(0, 4, 0, 0),
                 Padding = new Padding(0)
             };
-            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 126));
-            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
-            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            zeroOptions.Controls.Add(new Label
+            _zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142));
+            _zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 102));
+            _zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _gripDepthLabel = new Label
             {
                 Text = "Profundidad de amarre",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = new Padding(0)
-            }, 0, 0);
+            };
+            _zeroOptions.Controls.Add(_gripDepthLabel, 0, 0);
             _gripDepth = StockDimensionInput();
             _gripDepth.Text = "3,00";
             _gripDepth.Margin = new Padding(0, 2, 8, 2);
             _gripDepth.TextChanged += (s, e) => RefreshState();
-            zeroOptions.Controls.Add(_gripDepth, 1, 0);
+            _zeroOptions.Controls.Add(_gripDepth, 1, 0);
             _createWorkPlane = new CheckBox
             {
                 Text = "Crear plano con el nombre del cero",
@@ -740,8 +744,8 @@ namespace EspritSolidFixture
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = new Padding(4, 0, 0, 0)
             };
-            zeroOptions.Controls.Add(_createWorkPlane, 2, 0);
-            zeroEditorLayout.Controls.Add(zeroOptions, 0, 2);
+            _zeroOptions.Controls.Add(_createWorkPlane, 2, 0);
+            _zeroEditorLayout.Controls.Add(_zeroOptions, 0, 2);
 
             _zeroApply = new Button
             {
@@ -756,8 +760,8 @@ namespace EspritSolidFixture
             _zeroApply.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _zeroApply.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
             _zeroApply.Click += ApplyWorkZeroDefinition;
-            zeroEditorLayout.Controls.Add(_zeroApply, 0, 3);
-            _zeroEditorPanel.Controls.Add(zeroEditorLayout);
+            _zeroEditorLayout.Controls.Add(_zeroApply, 0, 3);
+            _zeroEditorPanel.Controls.Add(_zeroEditorLayout);
             layout.Controls.Add(_zeroEditorPanel);
 
             _mountingFaceSection = Section("Cara de montaje");
@@ -765,7 +769,7 @@ namespace EspritSolidFixture
             var mountingChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 72,
+                Height = 68,
                 ColumnCount = 2,
                 Margin = new Padding(0, 0, 0, 8),
                 BackColor = Color.White
@@ -790,7 +794,7 @@ namespace EspritSolidFixture
             var destinationChoices = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 138,
+                Height = 132,
                 ColumnCount = 2,
                 RowCount = 2,
                 Margin = new Padding(0, 0, 0, 8),
@@ -1274,6 +1278,7 @@ namespace EspritSolidFixture
             _zeroSummaryPanel.Visible = false;
             _zeroEditorPanel.Visible = true;
             SetMountingOptionsVisible(false);
+            UpdateWorkZeroEditorLayout();
             WorkZeroModeOnChanged(sender, e);
             RefreshState();
         }
@@ -1282,6 +1287,7 @@ namespace EspritSolidFixture
         {
             if (_zeroPointRow == null) return;
             _zeroPointRow.Visible = _zeroManual.Checked;
+            UpdateWorkZeroEditorLayout();
             StyleMountingChoice(_zeroAutomatic);
             StyleMountingChoice(_zeroManual);
             RefreshState();
@@ -1327,7 +1333,9 @@ namespace EspritSolidFixture
                 SetValidationStatus("Seleccione el punto que se usará como cero de pieza.", false);
                 return;
             }
-            if (!TryGetGripDepth(out double gripDepth))
+            bool hasJaws = HasMountedJaws();
+            double gripDepth = 0.0;
+            if (hasJaws && !TryGetGripDepth(out gripDepth))
             {
                 SetValidationStatus("Indique una profundidad de amarre válida.", false);
                 _gripDepth.Focus();
@@ -1338,8 +1346,8 @@ namespace EspritSolidFixture
             string planeText = _createWorkPlane.Checked
                 ? "Plano con nombre del cero"
                 : "Sin plano de trabajo";
-            _zeroSummaryText.Text = zeroText + "  •  " + planeText + "  •  Amarre " +
-                gripDepth.ToString("0.##", CultureInfo.CurrentCulture) + " mm";
+            UpdateWorkZeroSummary(zeroText, planeText,
+                hasJaws ? (double?)gripDepth : null);
             _zeroEditorPanel.Visible = false;
             _zeroSummaryPanel.Visible = true;
             SetMountingOptionsVisible(true);
@@ -1361,6 +1369,46 @@ namespace EspritSolidFixture
                 double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
                     CultureInfo.InvariantCulture, out value);
             return parsed && value >= 0.0;
+        }
+
+        private bool HasMountedJaws()
+        {
+            return _mountingElements.Any(item => item.Type == MountingElementType.Jaws);
+        }
+
+        private void UpdateWorkZeroEditorLayout()
+        {
+            if (_zeroOptions == null) return;
+            bool hasJaws = HasMountedJaws();
+            bool manual = _zeroManual.Checked;
+            _gripDepthLabel.Visible = hasJaws;
+            _gripDepth.Visible = hasJaws;
+            _zeroOptions.SetCellPosition(_createWorkPlane,
+                new TableLayoutPanelCellPosition(hasJaws ? 2 : 0, 0));
+            _zeroOptions.SetColumnSpan(_createWorkPlane, hasJaws ? 1 : 3);
+            _zeroEditorLayout.RowStyles[1].Height = manual ? 42 : 0;
+            _zeroEditorPanel.Height = 16 + 38 + (manual ? 42 : 0) + 40 + 38;
+        }
+
+        private void UpdateWorkZeroSummary(string zeroText = null,
+            string planeText = null, double? gripDepth = null)
+        {
+            zeroText = zeroText ?? (_zeroManual.Checked && _hasManualZero
+                ? FormatZeroPoint()
+                : "Cero automático");
+            planeText = planeText ?? (_createWorkPlane.Checked
+                ? "Plano con nombre del cero"
+                : "Sin plano de trabajo");
+            string summary = zeroText + "  •  " + planeText;
+            if (HasMountedJaws())
+            {
+                if (!gripDepth.HasValue && TryGetGripDepth(out double value))
+                    gripDepth = value;
+                if (gripDepth.HasValue)
+                    summary += "  •  Amarre " + gripDepth.Value.ToString(
+                        "0.##", CultureInfo.CurrentCulture) + " mm";
+            }
+            _zeroSummaryText.Text = summary;
         }
 
         private void SetMountingOptionsVisible(bool visible)
@@ -1531,7 +1579,7 @@ namespace EspritSolidFixture
 
         private static TextBox StockDimensionInput()
         {
-            return new TextBox
+            var input = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Text = "0,00",
@@ -1540,6 +1588,17 @@ namespace EspritSolidFixture
                 BackColor = Color.White,
                 MaxLength = 16
             };
+            input.HandleCreated += (sender, args) =>
+                SetTextBoxInnerMargins((TextBox)sender, 5, 5);
+            return input;
+        }
+
+        private static void SetTextBoxInnerMargins(TextBox textBox, int left, int right)
+        {
+            if (textBox == null || !textBox.IsHandleCreated) return;
+            int margins = (right << 16) | (left & 0xFFFF);
+            SendMessage(textBox.Handle, EmSetMargins,
+                (IntPtr)(EcLeftMargin | EcRightMargin), (IntPtr)margins);
         }
 
         private static ComboBox StockAlignmentInput()
@@ -2364,6 +2423,8 @@ namespace EspritSolidFixture
             foreach (SolidChoice fixture in _fixtures) _fixtureBox.Items.Add(fixture);
             _fixtureBox.EndUpdate();
             RefreshMountingTree();
+            UpdateWorkZeroEditorLayout();
+            UpdateWorkZeroSummary();
 
             _countLabel.Text = _fixtures.Count == 1
                 ? "1 sólido seleccionado"
@@ -2381,7 +2442,7 @@ namespace EspritSolidFixture
                                 File.Exists(_newMachinePath) &&
                                 GetNewEspritPath() != null;
             bool zeroReady = (!_zeroManual.Checked || _hasManualZero) &&
-                             TryGetGripDepth(out _);
+                             (!HasMountedJaws() || TryGetGripDepth(out _));
             bool ready = (_destinationFile.Checked
                     ? newFileReady
                     : reusePreviousPart || definePartAndStock) &&
@@ -2395,7 +2456,7 @@ namespace EspritSolidFixture
                 SetValidationStatus("Aplique la definición del cero y del amarre para continuar.", false);
             else if (_zeroManual.Checked && !_hasManualZero)
                 SetValidationStatus("Seleccione el punto que se usará como cero de pieza.", false);
-            else if (!TryGetGripDepth(out _))
+            else if (HasMountedJaws() && !TryGetGripDepth(out _))
                 SetValidationStatus("Indique una profundidad de amarre válida.", false);
             else if (_destinationFile.Checked && !File.Exists(_newMachinePath))
                 SetValidationStatus("Seleccione la máquina del nuevo archivo ESPRIT.", false);
@@ -2640,7 +2701,8 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             EndSelectionMode(false);
-            if (!TryGetGripDepth(out double gripDepth) ||
+            double gripDepth = 0.0;
+            if ((HasMountedJaws() && !TryGetGripDepth(out gripDepth)) ||
                 (_zeroManual.Checked && !_hasManualZero))
             {
                 RefreshState();
@@ -3407,6 +3469,14 @@ namespace EspritSolidFixture
 
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+
+        private const int EmSetMargins = 0x00D3;
+        private const int EcLeftMargin = 0x0001;
+        private const int EcRightMargin = 0x0002;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int message,
+            IntPtr wParam, IntPtr lParam);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct NativeRect
