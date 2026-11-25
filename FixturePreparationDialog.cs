@@ -12,9 +12,9 @@ namespace EspritSolidFixture
 {
     internal sealed class FixturePreparationDialog : Form
     {
-        private static readonly Color HeaderGray = Color.FromArgb(218, 218, 218);
+        private static readonly Color HeaderGray = Color.FromArgb(225, 231, 235);
         private static readonly Color SelectionOrange = Color.FromArgb(255, 218, 181);
-        private static readonly Color SelectionBackground = Color.FromArgb(236, 249, 250);
+        private static readonly Color SelectionBackground = Color.FromArgb(238, 248, 252);
         private static readonly Color EspritBlue = Color.FromArgb(0, 120, 184);
         private static readonly Color EspritGreen = Color.FromArgb(111, 174, 57);
 
@@ -30,6 +30,18 @@ namespace EspritSolidFixture
         private readonly TreeView _mountingTree;
         private readonly Panel _fixtureSelectionPanel;
         private readonly Button _fixtureToolbarButton;
+        private readonly Control _zeroSection;
+        private readonly Panel _zeroEditorPanel;
+        private readonly Panel _zeroSummaryPanel;
+        private readonly Panel _zeroPointRow;
+        private readonly Label _zeroSummaryText;
+        private readonly RadioButton _zeroAutomatic;
+        private readonly RadioButton _zeroManual;
+        private readonly Label _zeroPointText;
+        private readonly Button _zeroPick;
+        private readonly Button _zeroApply;
+        private readonly TextBox _gripDepth;
+        private readonly CheckBox _createWorkPlane;
         private readonly Control _mountingFaceSection;
         private readonly Control _mountingChoices;
         private readonly Control _destinationSection;
@@ -84,6 +96,10 @@ namespace EspritSolidFixture
         private StockMode _stockMode = StockMode.Block;
         private string _stockFilePath;
         private string _newMachinePath;
+        private bool _hasManualZero;
+        private double _manualZeroX;
+        private double _manualZeroY;
+        private double _manualZeroZ;
         private readonly bool _initializing = true;
 
         public FixturePreparationDialog(Esprit.Application app)
@@ -226,14 +242,25 @@ namespace EspritSolidFixture
             var parameterGrid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 3,
+                ColumnCount = 5,
                 RowCount = 1,
                 Padding = new Padding(0),
                 Margin = new Padding(0),
                 BackColor = Color.Transparent
             };
-            for (int index = 0; index < 3; index++)
-                parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+            parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
+            parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 16F));
+            parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
+            parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 16F));
+            parameterGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
+            parameterGrid.SizeChanged += (sender, args) =>
+            {
+                int available = Math.Max(0, parameterGrid.ClientSize.Width - 32);
+                int columnWidth = available / 3;
+                parameterGrid.ColumnStyles[0].Width = columnWidth;
+                parameterGrid.ColumnStyles[2].Width = columnWidth;
+                parameterGrid.ColumnStyles[4].Width = available - (columnWidth * 2);
+            };
             parameterGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             _stockParameterLabels = new Label[3];
             _stockParameterValues = new TextBox[3];
@@ -249,13 +276,11 @@ namespace EspritSolidFixture
                     Dock = DockStyle.Fill,
                     ColumnCount = 1,
                     RowCount = 3,
-                    Margin = new Padding(index == 0 ? 0 : 4, 0, index == 2 ? 0 : 4, 0),
-                    // Reserva el borde derecho dentro de la celda. En columnas
-                    // porcentuales WinForms puede recortar el último píxel del
-                    // TextBox y del ComboBox, especialmente en la columna central.
-                    Padding = new Padding(0, 0, 2, 0),
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
                     BackColor = Color.Transparent
                 };
+                axisPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
                 axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
                 axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 29));
@@ -267,6 +292,7 @@ namespace EspritSolidFixture
                     Margin = new Padding(0),
                     Padding = new Padding(0)
                 };
+                labelRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
                 labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
                 labelRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
@@ -280,8 +306,9 @@ namespace EspritSolidFixture
                 };
                 _stockParameterValues[index] = StockDimensionInput();
                 _stockParameterValues[index].TabIndex = index;
-                _stockParameterValues[index].Margin = new Padding(0, 0, 3, 2);
+                _stockParameterValues[index].Margin = new Padding(0, 0, 1, 2);
                 _stockParameterValues[index].TextChanged += StockParameterOnChanged;
+                WireStockTabNavigation(_stockParameterValues[index]);
                 _stockAlignments[index] = StockAlignmentInput();
                 _stockAlignments[index].TabIndex = 3 + index;
                 _stockAlignments[index].Margin = new Padding(0);
@@ -291,6 +318,7 @@ namespace EspritSolidFixture
                     UpdateStockMarginUi(axis);
                     StockParameterOnChanged(s, e);
                 };
+                WireStockTabNavigation(_stockAlignments[index]);
                 _stockMarginLabels[index] = new Label
                 {
                     Dock = DockStyle.Fill,
@@ -316,6 +344,7 @@ namespace EspritSolidFixture
                     Padding = new Padding(0),
                     BackColor = Color.Transparent
                 };
+                _stockMarginRows[index].RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
                 _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
                 _stockMarginRows[index].ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
@@ -325,9 +354,10 @@ namespace EspritSolidFixture
                     margin.Text = "0,00";
                     margin.TabIndex = index * 2 + marginIndex;
                     margin.Margin = marginIndex == 0
-                        ? new Padding(0, 0, 3, 0)
-                        : new Padding(3, 0, 0, 0);
+                        ? new Padding(0, 0, 3, 2)
+                        : new Padding(3, 0, 0, 2);
                     margin.TextChanged += StockParameterOnChanged;
+                    WireStockTabNavigation(margin);
                     _stockMarginValues[index, marginIndex] = margin;
                     _stockMarginRows[index].Controls.Add(margin, marginIndex + 1, 0);
                 }
@@ -338,7 +368,7 @@ namespace EspritSolidFixture
                 _stockMarginRows[index].Controls.Add(_stockParameterValues[index], 0, 0);
                 axisPanel.Controls.Add(_stockMarginRows[index], 0, 1);
                 axisPanel.Controls.Add(_stockAlignments[index], 0, 2);
-                parameterGrid.Controls.Add(axisPanel, index, 0);
+                parameterGrid.Controls.Add(axisPanel, index * 2, 0);
             }
             _stockParameters.Controls.Add(parameterGrid);
             _stockParameters.Controls.Add(stockActions);
@@ -567,6 +597,168 @@ namespace EspritSolidFixture
             fixtureSelectionLayout.Controls.Add(finishFixtureSelection);
             _fixtureSelectionPanel.Controls.Add(fixtureSelectionLayout);
             layout.Controls.Add(_fixtureSelectionPanel);
+
+            _zeroSection = Section("Cero pieza y amarre");
+            layout.Controls.Add(_zeroSection);
+            _zeroSummaryPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                Margin = new Padding(0, 0, 0, 5),
+                Padding = new Padding(10, 0, 4, 0),
+                BackColor = Color.FromArgb(246, 248, 249)
+            };
+            _zeroSummaryText = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(78, 86, 92),
+                AutoEllipsis = true,
+                Text = "Cero automático  •  Plano con nombre del cero  •  Amarre 3,00 mm"
+            };
+            var editZero = new Button
+            {
+                Text = "Editar",
+                Dock = DockStyle.Right,
+                Width = 82,
+                Margin = new Padding(4),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Cursor = Cursors.Hand
+            };
+            editZero.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            editZero.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
+            editZero.Click += ShowWorkZeroEditor;
+            _zeroSummaryPanel.Controls.Add(_zeroSummaryText);
+            _zeroSummaryPanel.Controls.Add(editZero);
+            layout.Controls.Add(_zeroSummaryPanel);
+
+            _zeroEditorPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 150,
+                Margin = new Padding(0, 0, 0, 5),
+                Padding = new Padding(10, 8, 10, 8),
+                BackColor = Color.FromArgb(246, 248, 249),
+                Visible = false
+            };
+            var zeroEditorLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.Transparent
+            };
+            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            var zeroModeChoices = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            zeroModeChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            zeroModeChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _zeroAutomatic = MountingChoice("Automático", true);
+            _zeroManual = MountingChoice("Seleccionar en la pieza", false);
+            _zeroAutomatic.Margin = new Padding(0, 0, 4, 0);
+            _zeroManual.Margin = new Padding(4, 0, 0, 0);
+            _zeroAutomatic.CheckedChanged += WorkZeroModeOnChanged;
+            _zeroManual.CheckedChanged += WorkZeroModeOnChanged;
+            zeroModeChoices.Controls.Add(_zeroAutomatic, 0, 0);
+            zeroModeChoices.Controls.Add(_zeroManual, 1, 0);
+            zeroEditorLayout.Controls.Add(zeroModeChoices, 0, 0);
+
+            _zeroPointRow = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 4, 0, 0),
+                BackColor = Color.Transparent,
+                Visible = false
+            };
+            _zeroPointText = new Label
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = SelectionBackground,
+                Text = "Seleccione un punto, vértice o centro",
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(8, 0, 4, 0),
+                AutoEllipsis = true
+            };
+            _zeroPick = new Button
+            {
+                Dock = DockStyle.Right,
+                Width = 32,
+                Image = CreateSelectionCursorIcon(),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                Cursor = Cursors.Hand,
+                AccessibleName = "Seleccionar el cero de pieza en la vista"
+            };
+            _zeroPick.FlatAppearance.BorderSize = 0;
+            _zeroPick.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 239, 167);
+            _zeroPick.Click += PickWorkZero;
+            _toolTip.SetToolTip(_zeroPick, "Seleccionar el cero en la vista de pieza");
+            _zeroPointRow.Controls.Add(_zeroPointText);
+            _zeroPointRow.Controls.Add(_zeroPick);
+            zeroEditorLayout.Controls.Add(_zeroPointRow, 0, 1);
+
+            var zeroOptions = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                Margin = new Padding(0, 4, 0, 0),
+                Padding = new Padding(0)
+            };
+            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 126));
+            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+            zeroOptions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            zeroOptions.Controls.Add(new Label
+            {
+                Text = "Profundidad de amarre",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = new Padding(0)
+            }, 0, 0);
+            _gripDepth = StockDimensionInput();
+            _gripDepth.Text = "3,00";
+            _gripDepth.Margin = new Padding(0, 2, 8, 2);
+            _gripDepth.TextChanged += (s, e) => RefreshState();
+            zeroOptions.Controls.Add(_gripDepth, 1, 0);
+            _createWorkPlane = new CheckBox
+            {
+                Text = "Crear plano con el nombre del cero",
+                Checked = true,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = new Padding(4, 0, 0, 0)
+            };
+            zeroOptions.Controls.Add(_createWorkPlane, 2, 0);
+            zeroEditorLayout.Controls.Add(zeroOptions, 0, 2);
+
+            _zeroApply = new Button
+            {
+                Text = "Aplicar definición",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 3, 0, 0),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(47, 55, 61),
+                Cursor = Cursors.Hand
+            };
+            _zeroApply.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
+            _zeroApply.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
+            _zeroApply.Click += ApplyWorkZeroDefinition;
+            zeroEditorLayout.Controls.Add(_zeroApply, 0, 3);
+            _zeroEditorPanel.Controls.Add(zeroEditorLayout);
+            layout.Controls.Add(_zeroEditorPanel);
 
             _mountingFaceSection = Section("Cara de montaje");
             layout.Controls.Add(_mountingFaceSection);
@@ -886,12 +1078,9 @@ namespace EspritSolidFixture
             };
             images.Images.Add("machine", LoadNativeTreeIcon("Setup.Machine.png",
                 CreateTreeNodeIcon(Color.FromArgb(108, 168, 199), true)));
-            images.Images.Add("accessory", LoadNativeTreeIcon("Setup.Fixture.png",
-                CreateTreeNodeIcon(Color.FromArgb(166, 174, 179), false)));
-            images.Images.Add("jaws", LoadNativeTreeIcon("Setup.MountJaws.png",
-                CreateJawsTreeIcon()));
-            images.Images.Add("fixture", LoadNativeTreeIcon("Setup.MountFixture.png",
-                CreateTreeNodeIcon(Color.FromArgb(139, 190, 116), false)));
+            images.Images.Add("accessory", CreateAccessoryTreeIcon());
+            images.Images.Add("jaws", CreateJawsTreeIcon());
+            images.Images.Add("fixture", CreateFixtureTreeIcon());
             images.Images.Add("part", LoadNativeTreeIcon("Setup.MountWorkpiece.png",
                 CreateTreeNodeIcon(Color.FromArgb(112, 174, 207), false)));
             return images;
@@ -974,11 +1163,45 @@ namespace EspritSolidFixture
         {
             var bitmap = new Bitmap(16, 16);
             using (Graphics graphics = Graphics.FromImage(bitmap))
-            using (var brush = new SolidBrush(Color.FromArgb(143, 151, 156)))
+            using (var front = new SolidBrush(Color.FromArgb(160, 165, 168)))
+            using (var top = new SolidBrush(Color.FromArgb(220, 223, 224)))
+            using (var side = new SolidBrush(Color.FromArgb(120, 127, 132)))
+            using (var outline = new Pen(Color.FromArgb(102, 109, 113), 0.8F))
             {
-                graphics.FillRectangle(brush, 2, 8, 12, 5);
-                graphics.FillRectangle(brush, 2, 3, 4, 6);
-                graphics.FillRectangle(brush, 10, 3, 4, 6);
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                DrawNativeCube(graphics, outline, top, front, side, 1, 7, 8, 7);
+                DrawNativeCube(graphics, outline, top, front, side, 7, 3, 8, 7);
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateAccessoryTreeIcon()
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var front = new SolidBrush(Color.FromArgb(165, 170, 173)))
+            using (var top = new SolidBrush(Color.FromArgb(224, 226, 227)))
+            using (var side = new SolidBrush(Color.FromArgb(121, 128, 132)))
+            using (var outline = new Pen(Color.FromArgb(104, 111, 115), 0.8F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                DrawNativeCube(graphics, outline, top, front, side, 1, 3, 14, 12);
+            }
+            return bitmap;
+        }
+
+        private static Bitmap CreateFixtureTreeIcon()
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (var front = new SolidBrush(Color.FromArgb(158, 164, 168)))
+            using (var top = new SolidBrush(Color.FromArgb(222, 225, 226)))
+            using (var side = new SolidBrush(Color.FromArgb(116, 124, 129)))
+            using (var outline = new Pen(Color.FromArgb(98, 106, 111), 0.8F))
+            {
+                graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                DrawNativeCube(graphics, outline, top, front, side, 1, 7, 14, 8);
+                DrawNativeCube(graphics, outline, top, front, side, 4, 2, 9, 8);
             }
             return bitmap;
         }
@@ -1045,13 +1268,121 @@ namespace EspritSolidFixture
             SetPostSelectionControlsVisible(true);
         }
 
-        private void SetPostSelectionControlsVisible(bool visible)
+        private void ShowWorkZeroEditor(object sender, EventArgs e)
+        {
+            PrepareForExtensionCommand();
+            _zeroSummaryPanel.Visible = false;
+            _zeroEditorPanel.Visible = true;
+            SetMountingOptionsVisible(false);
+            WorkZeroModeOnChanged(sender, e);
+            RefreshState();
+        }
+
+        private void WorkZeroModeOnChanged(object sender, EventArgs e)
+        {
+            if (_zeroPointRow == null) return;
+            _zeroPointRow.Visible = _zeroManual.Checked;
+            StyleMountingChoice(_zeroAutomatic);
+            StyleMountingChoice(_zeroManual);
+            RefreshState();
+        }
+
+        private void PickWorkZero(object sender, EventArgs e)
+        {
+            PrepareForExtensionCommand();
+            ActivatePartView();
+            Hide();
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                Esprit.Point point = document.GetPoint(
+                    "Seleccione el cero de pieza: punto, vértice o centro");
+                if (point != null)
+                {
+                    _manualZeroX = point.X;
+                    _manualZeroY = point.Y;
+                    _manualZeroZ = point.Z;
+                    _hasManualZero = true;
+                    _zeroManual.Checked = true;
+                    _zeroPointText.Text = FormatZeroPoint();
+                }
+            }
+            catch (COMException)
+            {
+                // Escape cancela el selector nativo sin alterar la definición.
+            }
+            finally
+            {
+                Show();
+                Activate();
+                BringToFront();
+            }
+            RefreshState();
+        }
+
+        private void ApplyWorkZeroDefinition(object sender, EventArgs e)
+        {
+            if (_zeroManual.Checked && !_hasManualZero)
+            {
+                SetValidationStatus("Seleccione el punto que se usará como cero de pieza.", false);
+                return;
+            }
+            if (!TryGetGripDepth(out double gripDepth))
+            {
+                SetValidationStatus("Indique una profundidad de amarre válida.", false);
+                _gripDepth.Focus();
+                return;
+            }
+
+            string zeroText = _zeroManual.Checked ? FormatZeroPoint() : "Cero automático";
+            string planeText = _createWorkPlane.Checked
+                ? "Plano con nombre del cero"
+                : "Sin plano de trabajo";
+            _zeroSummaryText.Text = zeroText + "  •  " + planeText + "  •  Amarre " +
+                gripDepth.ToString("0.##", CultureInfo.CurrentCulture) + " mm";
+            _zeroEditorPanel.Visible = false;
+            _zeroSummaryPanel.Visible = true;
+            SetMountingOptionsVisible(true);
+            RefreshState();
+        }
+
+        private string FormatZeroPoint()
+        {
+            return string.Format(CultureInfo.CurrentCulture,
+                "X {0:0.###}  Y {1:0.###}  Z {2:0.###}",
+                _manualZeroX, _manualZeroY, _manualZeroZ);
+        }
+
+        private bool TryGetGripDepth(out double value)
+        {
+            string text = (_gripDepth?.Text ?? string.Empty).Trim();
+            bool parsed = double.TryParse(text, NumberStyles.Float,
+                CultureInfo.CurrentCulture, out value) ||
+                double.TryParse(text.Replace(',', '.'), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out value);
+            return parsed && value >= 0.0;
+        }
+
+        private void SetMountingOptionsVisible(bool visible)
         {
             _mountingFaceSection.Visible = visible;
             _mountingChoices.Visible = visible;
             _destinationSection.Visible = visible;
             _destinationChoices.Visible = visible;
             _newFilePanel.Visible = visible && _destinationFile.Checked;
+        }
+
+        private void SetPostSelectionControlsVisible(bool visible)
+        {
+            _zeroSection.Visible = visible;
+            if (!visible)
+            {
+                _zeroSummaryPanel.Visible = false;
+                _zeroEditorPanel.Visible = false;
+            }
+            else
+                _zeroSummaryPanel.Visible = true;
+            SetMountingOptionsVisible(visible);
         }
 
         private void EndSelectionMode(bool clearGraphicSelection)
@@ -1206,6 +1537,7 @@ namespace EspritSolidFixture
                 Text = "0,00",
                 TextAlign = HorizontalAlignment.Right,
                 BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
                 MaxLength = 16
             };
         }
@@ -1433,9 +1765,6 @@ namespace EspritSolidFixture
             if (parametric)
             {
                 bool block = _stockMode == StockMode.Block;
-                _stockParameterLabels[0].Text = block ? "Longitud X" : "Diámetro exterior";
-                _stockParameterLabels[1].Text = block ? "Longitud Y" : "Diámetro interior";
-                _stockParameterLabels[2].Text = block ? "Altura Z" : "Longitud Z";
                 _stockAlignments[0].Visible = block;
                 _stockAlignments[1].Visible = block;
                 _stockAlignments[2].Visible = true;
@@ -1479,23 +1808,44 @@ namespace EspritSolidFixture
                 : "Margen izq.";
             _stockMarginSecondaryLabels[index].Text = "Margen der.";
 
-            float dimensionWidth = doubleMargin ? 0 : showMargins ? 58 : 100;
-            float firstMarginWidth = doubleMargin ? 50 : showMargins ? 42 : 0;
-            float secondMarginWidth = doubleMargin ? 50 : 0;
-            _stockMarginRows[index].ColumnStyles[0].Width = dimensionWidth;
-            _stockMarginRows[index].ColumnStyles[1].Width = firstMarginWidth;
-            _stockMarginRows[index].ColumnStyles[2].Width = secondMarginWidth;
             var labelRow = (TableLayoutPanel)_stockMarginLabels[index].Parent;
-            labelRow.ColumnStyles[0].Width = dimensionWidth;
-            labelRow.ColumnStyles[1].Width = firstMarginWidth;
-            labelRow.ColumnStyles[2].Width = secondMarginWidth;
+            if (doubleMargin)
+            {
+                SetStockColumns(_stockMarginRows[index], 0, 50, 50);
+                SetStockColumns(labelRow, 0, 50, 50);
+            }
+            else if (showMargins)
+            {
+                SetStockColumns(_stockMarginRows[index], 58, 42, 0);
+                SetStockColumns(labelRow, 58, 42, 0);
+            }
+            else
+            {
+                SetStockColumns(_stockMarginRows[index], 100, 0, 0);
+                SetStockColumns(labelRow, 100, 0, 0);
+            }
             _stockMarginValues[index, 0].Visible = showMargins;
             _stockMarginValues[index, 1].Visible = doubleMargin;
-            _stockParameterValues[index].Margin = new Padding(0, 0, showMargins ? 3 : 1, 2);
+            _stockParameterValues[index].Margin =
+                new Padding(0, 0, showMargins ? 3 : 1, 2);
             _stockMarginValues[index, 0].Margin = new Padding(showMargins ? 3 : 0, 0,
                 doubleMargin ? 3 : 0, 2);
             _stockMarginValues[index, 1].Margin = new Padding(3, 0, 0, 2);
             _stockContext.Height = 130;
+        }
+
+        private static void SetStockColumns(TableLayoutPanel row,
+            float first, float second, float third)
+        {
+            float[] widths = { first, second, third };
+            for (int column = 0; column < widths.Length; column++)
+            {
+                bool collapsed = widths[column] <= 0;
+                row.ColumnStyles[column].SizeType = collapsed
+                    ? SizeType.Absolute
+                    : SizeType.Percent;
+                row.ColumnStyles[column].Width = collapsed ? 0 : widths[column];
+            }
         }
 
         private void AutoFitStock(object sender, EventArgs e)
@@ -2030,14 +2380,23 @@ namespace EspritSolidFixture
                                 (_part != null || HasExistingPart()) &&
                                 File.Exists(_newMachinePath) &&
                                 GetNewEspritPath() != null;
+            bool zeroReady = (!_zeroManual.Checked || _hasManualZero) &&
+                             TryGetGripDepth(out _);
             bool ready = (_destinationFile.Checked
                     ? newFileReady
                     : reusePreviousPart || definePartAndStock) &&
-                folder != null;
-            _accept.Enabled = ready && !_fixtureSelectionPanel.Visible;
+                folder != null && zeroReady;
+            _accept.Enabled = ready && !_fixtureSelectionPanel.Visible &&
+                              !_zeroEditorPanel.Visible;
 
             if (_fixtureSelectionPanel.Visible)
                 SetValidationStatus("Termine la selección de utillajes para continuar.", false);
+            else if (_zeroEditorPanel.Visible)
+                SetValidationStatus("Aplique la definición del cero y del amarre para continuar.", false);
+            else if (_zeroManual.Checked && !_hasManualZero)
+                SetValidationStatus("Seleccione el punto que se usará como cero de pieza.", false);
+            else if (!TryGetGripDepth(out _))
+                SetValidationStatus("Indique una profundidad de amarre válida.", false);
             else if (_destinationFile.Checked && !File.Exists(_newMachinePath))
                 SetValidationStatus("Seleccione la máquina del nuevo archivo ESPRIT.", false);
             else if (_destinationFile.Checked && !(_part != null || HasExistingPart()))
@@ -2281,6 +2640,12 @@ namespace EspritSolidFixture
         private void AcceptPreparation(object sender, EventArgs e)
         {
             EndSelectionMode(false);
+            if (!TryGetGripDepth(out double gripDepth) ||
+                (_zeroManual.Checked && !_hasManualZero))
+            {
+                RefreshState();
+                return;
+            }
             string folder = _fixtures.Count > 0 ? DetermineOutputFolder() : string.Empty;
             bool reusePreviousPart = CanReusePreviousPart() && _part == null && _stock == null;
             bool stockReady = IsStockReady();
@@ -2336,6 +2701,15 @@ namespace EspritSolidFixture
                 RotateAssembly = _mountTop.Checked,
                 MountingStackHeight = mountingStackHeight,
                 WorkOffsetBaseZ = workOffsetBaseZ,
+                GripDepth = gripDepth,
+                WorkZero = new WorkZeroSpec
+                {
+                    IsManual = _zeroManual.Checked,
+                    X = _manualZeroX,
+                    Y = _manualZeroY,
+                    Z = _manualZeroZ,
+                    CreateWorkPlane = _createWorkPlane.Checked
+                },
                 NewEspritPath = newEspritPath,
                 NewMachinePath = newFile ? _newMachinePath : null,
                 SelectedPart = newFile ? _part?.Solid : null
@@ -2413,12 +2787,13 @@ namespace EspritSolidFixture
                         pending.Paths, pending.NewEspritPath, pending.NewMachinePath,
                         pending.SelectedPart, pending.RotateAssembly,
                         pending.MountingStackHeight, pending.WorkOffsetBaseZ,
-                        pending.BaseElements);
+                        pending.GripDepth, pending.WorkZero, pending.BaseElements);
                 else
                     assembler.MountFixturesAndWorkpiece(
                         pending.Paths, pending.CreateNewConfiguration,
                         pending.RotateAssembly, pending.MountingStackHeight,
-                        pending.WorkOffsetBaseZ, pending.BaseElements);
+                        pending.WorkOffsetBaseZ, pending.GripDepth,
+                        pending.WorkZero, pending.BaseElements);
             }
             catch (Exception ex)
             {
@@ -2525,7 +2900,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Top,
                 Height = 58,
-                BackColor = Color.FromArgb(247, 249, 250),
+                BackColor = Color.FromArgb(243, 247, 249),
                 Margin = new Padding(0, 0, 0, 8),
                 Padding = new Padding(14, 8, 10, 7)
             };
@@ -2533,7 +2908,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Left,
                 Width = 4,
-                BackColor = EspritGreen
+                BackColor = EspritBlue
             });
             panel.Controls.Add(new Label
             {
@@ -2542,7 +2917,7 @@ namespace EspritSolidFixture
                 Height = 23,
                 Padding = new Padding(10, 0, 0, 0),
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(35, 45, 52)
+                ForeColor = Color.FromArgb(30, 53, 68)
             });
             panel.Controls.Add(new Label
             {
@@ -2550,7 +2925,7 @@ namespace EspritSolidFixture
                 Dock = DockStyle.Bottom,
                 Height = 21,
                 Padding = new Padding(10, 0, 0, 0),
-                ForeColor = Color.FromArgb(82, 91, 98)
+                ForeColor = Color.FromArgb(75, 91, 101)
             });
             return panel;
         }
@@ -2766,7 +3141,7 @@ namespace EspritSolidFixture
             Dock = DockStyle.Top,
             Height = 24,
             BackColor = HeaderGray,
-            ForeColor = Color.Black,
+            ForeColor = Color.FromArgb(30, 53, 68),
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(9, 0, 0, 0),
             Margin = new Padding(0, 8, 0, 5),
@@ -2955,54 +3330,57 @@ namespace EspritSolidFixture
             public bool RotateAssembly { get; set; }
             public double MountingStackHeight { get; set; }
             public double WorkOffsetBaseZ { get; set; }
+            public double GripDepth { get; set; }
+            public WorkZeroSpec WorkZero { get; set; }
             public string NewEspritPath { get; set; }
             public string NewMachinePath { get; set; }
             public Esprit.Solid SelectedPart { get; set; }
         }
 
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        private void WireStockTabNavigation(Control control)
         {
-            bool forward = keyData == Keys.Tab;
-            bool backward = keyData == (Keys.Shift | Keys.Tab);
-            if (forward || backward)
+            control.PreviewKeyDown += (sender, e) =>
             {
-                Control focused = FindFocusedControl(this);
-                var numericFields = new List<TextBox>();
-                for (int index = 0; index < 3; index++)
+                if (e.KeyCode == Keys.Tab) e.IsInputKey = true;
+            };
+            control.KeyDown += (sender, e) =>
+            {
+                if (e.KeyCode != Keys.Tab) return;
+                if (MoveStockFocus((Control)sender, !e.Shift))
                 {
-                    if (_stockParameterValues[index].Visible)
-                        numericFields.Add(_stockParameterValues[index]);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
                 }
-                for (int axis = 0; axis < 3; axis++)
-                {
-                    for (int margin = 0; margin < 2; margin++)
-                    {
-                        if (_stockMarginValues[axis, margin].Visible)
-                            numericFields.Add(_stockMarginValues[axis, margin]);
-                    }
-                }
-                int current = numericFields.IndexOf(focused as TextBox);
-                if (current >= 0 && numericFields.Count > 1)
-                {
-                    int next = (current + (forward ? 1 : -1) + numericFields.Count) %
-                               numericFields.Count;
-                    numericFields[next].Focus();
-                    numericFields[next].SelectAll();
-                    return true;
-                }
-            }
-            return base.ProcessCmdKey(ref msg, keyData);
+            };
         }
 
-        private static Control FindFocusedControl(Control parent)
+        private bool MoveStockFocus(Control focused, bool forward)
         {
-            foreach (Control child in parent.Controls)
+            var stockFields = new List<Control>();
+            for (int axis = 0; axis < 3; axis++)
             {
-                if (!child.ContainsFocus) continue;
-                Control nested = FindFocusedControl(child);
-                return nested ?? child;
+                if (_stockParameterValues[axis].Visible)
+                    stockFields.Add(_stockParameterValues[axis]);
+                for (int margin = 0; margin < 2; margin++)
+                {
+                    if (_stockMarginValues[axis, margin].Visible)
+                        stockFields.Add(_stockMarginValues[axis, margin]);
+                }
             }
-            return parent.Focused ? parent : null;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                if (_stockAlignments[axis].Visible)
+                    stockFields.Add(_stockAlignments[axis]);
+            }
+
+            int current = stockFields.IndexOf(focused);
+            if (current < 0 || stockFields.Count < 2) return false;
+            int next = (current + (forward ? 1 : -1) + stockFields.Count) %
+                       stockFields.Count;
+            Control target = stockFields[next];
+            target.Focus();
+            if (target is TextBox textBox) textBox.SelectAll();
+            return true;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

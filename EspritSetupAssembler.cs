@@ -168,6 +168,7 @@ namespace EspritSolidFixture
         public void CreateNewPhaseFile(IEnumerable<string> fixturePaths, string newEspritPath,
             string machinePath, Esprit.Solid selectedPart, bool rotateAssembly,
             double mountingStackHeight, double workOffsetBaseZ,
+            double gripDepth, WorkZeroSpec workZero,
             IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
@@ -235,7 +236,7 @@ namespace EspritSolidFixture
 
                 step = "crear el nuevo montaje";
                 MountFixturesAndWorkpiece(paths, false, rotateAssembly,
-                    mountingStackHeight, workOffsetBaseZ, bases);
+                    mountingStackHeight, workOffsetBaseZ, gripDepth, workZero, bases);
                 step = "guardar el nuevo archivo ESPRIT";
                 _document.Save();
             }
@@ -393,7 +394,8 @@ namespace EspritSolidFixture
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths,
             bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
-            double workOffsetBaseZ, IEnumerable<MountingElementSpec> baseElements = null)
+            double workOffsetBaseZ, double gripDepth, WorkZeroSpec workZero,
+            IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
             var bases = (baseElements ?? Enumerable.Empty<MountingElementSpec>())
@@ -437,6 +439,7 @@ namespace EspritSolidFixture
                 Esprit.MachineItems mountingItems = setup.MachineItems;
                 Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
+                double nextMountLift = 0.0;
                 foreach (MountingElementSpec element in bases)
                 {
                     if (element.Type == MountingElementType.Accessory)
@@ -444,6 +447,11 @@ namespace EspritSolidFixture
                         step = "cargar el accesorio " + Path.GetFileName(element.FileName);
                         Esprit.Fixture accessory = mountingItems.AddFixture(element.FileName);
                         accessory.Name = Path.GetFileNameWithoutExtension(element.FileName);
+                        if (Math.Abs(nextMountLift) > 0.000001)
+                        {
+                            accessory.ZTranslation = accessory.ZTranslation + nextMountLift;
+                            nextMountLift = 0.0;
+                        }
                         if (rootFixture == null) rootFixture = accessory;
                         topFixture = accessory;
                         mountingItems = accessory.MachineItems;
@@ -461,6 +469,9 @@ namespace EspritSolidFixture
                         // Cero permite que ESPRIT use la posición definida por el
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
+                        // ESPRIT sitúa el siguiente elemento en la parte superior
+                        // de las garras. Se baja la profundidad de amarre elegida.
+                        nextMountLift = -Math.Abs(gripDepth);
                     }
                 }
                 foreach (string path in paths)
@@ -468,6 +479,11 @@ namespace EspritSolidFixture
                     step = "cargar el accesorio " + Path.GetFileName(path);
                     Esprit.Fixture fixture = mountingItems.AddFixture(path);
                     fixture.Name = Path.GetFileNameWithoutExtension(path);
+                    if (Math.Abs(nextMountLift) > 0.000001)
+                    {
+                        fixture.ZTranslation = fixture.ZTranslation + nextMountLift;
+                        nextMountLift = 0.0;
+                    }
                     if (rootFixture == null) rootFixture = fixture;
                     topFixture = fixture;
                     mountingItems = fixture.MachineItems;
@@ -484,6 +500,8 @@ namespace EspritSolidFixture
 
                 step = "crear la instancia de pieza sobre el accesorio";
                 Esprit.WorkpieceInstance instance = mountingItems.AddWorkpieceInstance();
+                if (Math.Abs(nextMountLift) > 0.000001)
+                    instance.ZTranslation = instance.ZTranslation + nextMountLift;
                 if (rotateAssembly && rootFixture == null)
                 {
                     step = "girar la pieza 180 grados sobre Y y después sobre Z";
@@ -507,16 +525,25 @@ namespace EspritSolidFixture
                 workOffset.SecondaryNumber = 0;
                 workOffset.Name = "G" + workOffsetNumber;
 
-                step = "colocar el cero en la base del primer accesorio";
-                // El usuario define el cero desde el plano XYZ absoluto del CAD.
-                // No se desplaza X/Y. En montaje normal se usa la Z mínima de los
-                // accesorios; al girar el conjunto se usa su Z máxima original.
-                workOffset.PartShiftX = 0.0;
-                workOffset.PartShiftY = 0.0;
-                workOffset.PartShiftZ = workOffsetBaseZ;
+                bool manualZero = workZero != null && workZero.IsManual;
+                double workZeroX = manualZero ? workZero.X : 0.0;
+                double workZeroY = manualZero ? workZero.Y : 0.0;
+                double workZeroZ = manualZero ? workZero.Z : workOffsetBaseZ;
+                step = manualZero
+                    ? "colocar el cero en el punto seleccionado"
+                    : "colocar el cero en la base del primer accesorio";
+                workOffset.PartShiftX = workZeroX;
+                workOffset.PartShiftY = workZeroY;
+                workOffset.PartShiftZ = workZeroZ;
 
                 step = "finalizar la edición de máquina";
                 setup.EndEdit();
+                if (workZero == null || workZero.CreateWorkPlane)
+                {
+                    step = "crear el plano de trabajo " + workOffset.Name;
+                    CreateOrUpdateWorkPlane(workOffset.Name, workZeroX, workZeroY,
+                        workZeroZ, rotateAssembly);
+                }
                 _document.Refresh();
             }
             catch (Exception ex)
@@ -527,6 +554,35 @@ namespace EspritSolidFixture
                 }
                 throw new InvalidOperationException("Error al " + step + ": " + ex.Message, ex);
             }
+        }
+
+        private void CreateOrUpdateWorkPlane(string name, double x, double y, double z,
+            bool rotateAssembly)
+        {
+            Esprit.Plane plane = null;
+            foreach (Esprit.Plane candidate in _document.Planes)
+            {
+                if (!string.Equals(candidate.Name, name,
+                    StringComparison.OrdinalIgnoreCase)) continue;
+                plane = candidate;
+                break;
+            }
+            if (plane == null) plane = _document.Planes.Add(name);
+
+            plane.IsWork = true;
+            plane.X = x;
+            plane.Y = y;
+            plane.Z = z;
+            plane.Ux = 1.0;
+            plane.Uy = 0.0;
+            plane.Uz = 0.0;
+            plane.Vx = 0.0;
+            plane.Vy = rotateAssembly ? -1.0 : 1.0;
+            plane.Vz = 0.0;
+            plane.Wx = 0.0;
+            plane.Wy = 0.0;
+            plane.Wz = rotateAssembly ? -1.0 : 1.0;
+            plane.Activate();
         }
 
         private int FindNextAvailableWorkOffsetNumber()
