@@ -441,6 +441,7 @@ namespace EspritSolidFixture
                 Esprit.MachineItems mountingItems = setup.MachineItems;
                 Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
+                string topFixtureSourceFile = null;
                 double? pendingJawGripTranslation = null;
                 foreach (MountingElementSpec element in bases)
                 {
@@ -457,6 +458,7 @@ namespace EspritSolidFixture
                         }
                         if (rootFixture == null) rootFixture = accessory;
                         topFixture = accessory;
+                        topFixtureSourceFile = element.FileName;
                         mountingItems = accessory.MachineItems;
                     }
                     else
@@ -474,7 +476,7 @@ namespace EspritSolidFixture
                         mountingItems.AddJaws(element.FileName, 0.0);
                         pendingJawGripTranslation =
                             ReadJawTopZ(element.FileName) - Math.Abs(gripDepth) -
-                            ReadWorkpieceToJawAdapterOffset(topFixture.FileName);
+                            ReadWorkpieceToJawAdapterOffset(topFixtureSourceFile);
                     }
                 }
                 foreach (string path in paths)
@@ -490,6 +492,7 @@ namespace EspritSolidFixture
                     }
                     if (rootFixture == null) rootFixture = fixture;
                     topFixture = fixture;
+                    topFixtureSourceFile = path;
                     mountingItems = fixture.MachineItems;
                 }
 

@@ -1501,26 +1501,8 @@ namespace EspritSolidFixture
                     EspritConstants.espFileType.espFileTypeFixtures);
             }
             catch { }
-            using (var dialog = new OpenFileDialog
-            {
-                Title = title,
-                Filter = "Accesorios ESPRIT (*.gdml)|*.gdml|Todos los archivos (*.*)|*.*",
-                InitialDirectory = Directory.Exists(folder) ? folder : string.Empty,
-                CheckFileExists = true,
-                CheckPathExists = true,
-                Multiselect = false,
-                RestoreDirectory = true,
-                // El diálogo moderno carga el controlador de vista previa de GDML.
-                // En algunos equipos este controlador bloquea el hilo principal de
-                // ESPRIT al seleccionar el archivo. El diálogo clásico evita por
-                // completo esa vista previa y devuelve únicamente la ruta elegida.
-                AutoUpgradeEnabled = false
-            })
-            {
-                return dialog.ShowDialog(this) == DialogResult.OK
-                    ? dialog.FileName
-                    : null;
-            }
+            return ModernGdmlFileDialog.Show(
+                Handle, title, Directory.Exists(folder) ? folder : null);
         }
 
         private void RemoveMountingElement(object sender, EventArgs e)
