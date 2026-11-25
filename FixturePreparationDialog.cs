@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using System.Xml.Linq;
 
 namespace EspritSolidFixture
 {
@@ -45,6 +46,12 @@ namespace EspritSolidFixture
         private readonly Label _gripDepthLabel;
         private readonly TableLayoutPanel _zeroOptions;
         private readonly CheckBox _createWorkPlane;
+        private readonly Panel _jawConfigurationPanel;
+        private readonly PictureBox _jawPreview;
+        private readonly RadioButton _jawInnerPair;
+        private readonly RadioButton _jawOuterPair;
+        private readonly RadioButton _jawNormal;
+        private readonly RadioButton _jawReversed;
         private readonly Control _mountingFaceSection;
         private readonly Control _mountingChoices;
         private readonly Control _destinationSection;
@@ -650,7 +657,7 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 4,
+                RowCount = 5,
                 Margin = new Padding(0),
                 Padding = new Padding(0),
                 BackColor = Color.Transparent
@@ -658,6 +665,7 @@ namespace EspritSolidFixture
             _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
             _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
             _zeroEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             var zeroModeChoices = new TableLayoutPanel
             {
@@ -771,6 +779,108 @@ namespace EspritSolidFixture
             _zeroOptions.Controls.Add(_createWorkPlane, 2, 0);
             _zeroEditorLayout.Controls.Add(_zeroOptions, 0, 2);
 
+            _jawConfigurationPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 5, 0, 2),
+                Padding = new Padding(0),
+                BackColor = Color.White,
+                Visible = false
+            };
+            var jawLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            jawLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            jawLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
+            _jawPreview = new PictureBox
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 7, 4),
+                BackColor = Color.FromArgb(239, 244, 247),
+                BorderStyle = BorderStyle.FixedSingle,
+                SizeMode = PictureBoxSizeMode.Normal,
+                AccessibleName = "Previsualización superior de las garras"
+            };
+            _jawPreview.Paint += PaintJawPreview;
+            jawLayout.Controls.Add(_jawPreview, 0, 0);
+
+            var jawOptions = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                Margin = new Padding(7, 0, 0, 4),
+                Padding = new Padding(0)
+            };
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
+            jawOptions.Controls.Add(new Label
+            {
+                Text = "Puntos de montaje",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.BottomLeft
+            }, 0, 0);
+            var pairChoices = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            pairChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            pairChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _jawInnerPair = CompactChoice("Interior 1–2", true);
+            _jawOuterPair = CompactChoice("Exterior 3–4", false);
+            _jawInnerPair.CheckedChanged += JawConfigurationChanged;
+            _jawOuterPair.CheckedChanged += JawConfigurationChanged;
+            pairChoices.Controls.Add(_jawInnerPair, 0, 0);
+            pairChoices.Controls.Add(_jawOuterPair, 1, 0);
+            jawOptions.Controls.Add(pairChoices, 0, 1);
+            jawOptions.Controls.Add(new Label
+            {
+                Text = "Orientación",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.BottomLeft
+            }, 0, 2);
+            var directionChoices = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            directionChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            directionChoices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _jawNormal = CompactChoice("Normal", true);
+            _jawReversed = CompactChoice("Invertida", false);
+            _jawNormal.CheckedChanged += JawConfigurationChanged;
+            _jawReversed.CheckedChanged += JawConfigurationChanged;
+            directionChoices.Controls.Add(_jawNormal, 0, 0);
+            directionChoices.Controls.Add(_jawReversed, 1, 0);
+            jawOptions.Controls.Add(directionChoices, 0, 3);
+            jawLayout.Controls.Add(jawOptions, 1, 0);
+            var previewHint = new Label
+            {
+                Text = "Vista superior · La previsualización no modifica la máquina",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = Color.FromArgb(78, 86, 92),
+                Padding = new Padding(8, 0, 0, 0)
+            };
+            jawLayout.Controls.Add(previewHint, 0, 1);
+            jawLayout.SetColumnSpan(previewHint, 2);
+            _jawConfigurationPanel.Controls.Add(jawLayout);
+            _zeroEditorLayout.Controls.Add(_jawConfigurationPanel, 0, 3);
+
             _zeroApply = new Button
             {
                 Text = "Aplicar definición",
@@ -784,7 +894,7 @@ namespace EspritSolidFixture
             _zeroApply.FlatAppearance.BorderColor = Color.FromArgb(165, 171, 176);
             _zeroApply.FlatAppearance.MouseOverBackColor = Color.FromArgb(225, 242, 250);
             _zeroApply.Click += ApplyWorkZeroDefinition;
-            _zeroEditorLayout.Controls.Add(_zeroApply, 0, 3);
+            _zeroEditorLayout.Controls.Add(_zeroApply, 0, 4);
             _zeroEditorPanel.Controls.Add(_zeroEditorLayout);
             layout.Controls.Add(_zeroEditorPanel);
 
@@ -1263,8 +1373,13 @@ namespace EspritSolidFixture
                 if (IsDisposed || Disposing) return;
                 string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
                 if (path == null) return;
+                string parentAccessory = _mountingElements
+                    .LastOrDefault(item => item.Type == MountingElementType.Accessory)?.FileName;
                 _mountingElements.Add(new MountingElementSpec(
-                    MountingElementType.Jaws, path));
+                    MountingElementType.Jaws, path, parentAccessory));
+                _jawInnerPair.Checked = true;
+                _jawNormal.Checked = true;
+                UpdateJawConfigurationControls();
                 RefreshState();
             }));
         }
@@ -1408,6 +1523,151 @@ namespace EspritSolidFixture
             return _mountingElements.Any(item => item.Type == MountingElementType.Jaws);
         }
 
+        private MountingElementSpec CurrentJawSpec() => _mountingElements
+            .LastOrDefault(item => item.Type == MountingElementType.Jaws);
+
+        private void JawConfigurationChanged(object sender, EventArgs e)
+        {
+            MountingElementSpec jaws = CurrentJawSpec();
+            if (jaws == null) return;
+            jaws.JawAdapterIndices.Clear();
+            if (_jawOuterPair.Checked)
+            {
+                jaws.JawAdapterIndices.Add(3);
+                jaws.JawAdapterIndices.Add(4);
+            }
+            else
+            {
+                jaws.JawAdapterIndices.Add(1);
+                jaws.JawAdapterIndices.Add(2);
+            }
+            jaws.ReverseJaws = _jawReversed.Checked;
+            StyleMountingChoice(_jawInnerPair);
+            StyleMountingChoice(_jawOuterPair);
+            StyleMountingChoice(_jawNormal);
+            StyleMountingChoice(_jawReversed);
+            _jawPreview.Invalidate();
+            UpdateWorkZeroSummary();
+        }
+
+        private void UpdateJawConfigurationControls()
+        {
+            MountingElementSpec jaws = CurrentJawSpec();
+            bool visible = jaws != null;
+            _jawConfigurationPanel.Visible = visible;
+            if (!visible) return;
+            List<JawMountPoint> points = ReadJawMountPoints(jaws.ParentAccessoryFile);
+            bool hasOuterPair = points.Count >= 4;
+            _jawOuterPair.Enabled = hasOuterPair;
+            if (!hasOuterPair && _jawOuterPair.Checked) _jawInnerPair.Checked = true;
+            _jawPreview.Invalidate();
+        }
+
+        private void PaintJawPreview(object sender, PaintEventArgs e)
+        {
+            MountingElementSpec jaws = CurrentJawSpec();
+            if (jaws == null) return;
+            List<JawMountPoint> points = ReadJawMountPoints(jaws.ParentAccessoryFile);
+            if (points.Count == 0)
+            {
+                using (var text = new SolidBrush(Color.FromArgb(88, 96, 103)))
+                    e.Graphics.DrawString("No se encontraron puntos de montaje.", Font,
+                        text, new RectangleF(8, 8, _jawPreview.Width - 16, 40));
+                return;
+            }
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            double minX = points.Min(point => point.X), maxX = points.Max(point => point.X);
+            double minY = points.Min(point => point.Y), maxY = points.Max(point => point.Y);
+            double rangeX = Math.Max(20.0, maxX - minX);
+            double rangeY = Math.Max(20.0, maxY - minY);
+            var area = new RectangleF(20, 16, Math.Max(20, _jawPreview.Width - 40),
+                Math.Max(20, _jawPreview.Height - 32));
+            float scale = (float)Math.Min(area.Width / (rangeX + 35.0),
+                area.Height / (rangeY + 35.0));
+            float centerX = area.Left + area.Width / 2F;
+            float centerY = area.Top + area.Height / 2F;
+            double dataCenterX = (minX + maxX) / 2.0;
+            double dataCenterY = (minY + maxY) / 2.0;
+
+            using (var fixture = new SolidBrush(Color.FromArgb(192, 199, 203)))
+            using (var fixtureEdge = new Pen(Color.FromArgb(120, 130, 136)))
+            {
+                var body = new RectangleF(area.Left + 5, area.Top + 5,
+                    area.Width - 10, area.Height - 10);
+                e.Graphics.FillRectangle(fixture, body);
+                e.Graphics.DrawRectangle(fixtureEdge, body.X, body.Y, body.Width, body.Height);
+            }
+
+            for (int index = 0; index < points.Count; index++)
+            {
+                JawMountPoint point = points[index];
+                float x = centerX + (float)(point.X - dataCenterX) * scale;
+                float y = centerY - (float)(point.Y - dataCenterY) * scale;
+                int adapterIndex = index + 1;
+                bool selected = jaws.JawAdapterIndices.Contains(adapterIndex);
+                using (var dot = new SolidBrush(selected ? EspritBlue : Color.White))
+                using (var edge = new Pen(selected ? EspritBlue : Color.FromArgb(105, 115, 121), 1.2F))
+                {
+                    e.Graphics.FillEllipse(dot, x - 8, y - 8, 16, 16);
+                    e.Graphics.DrawEllipse(edge, x - 8, y - 8, 16, 16);
+                }
+                if (selected)
+                {
+                    float direction = jaws.ReverseJaws ? -1F : 1F;
+                    float radialX = x - centerX, radialY = y - centerY;
+                    float radialLength = Math.Max(1F,
+                        (float)Math.Sqrt(radialX * radialX + radialY * radialY));
+                    radialX = radialX / radialLength * direction;
+                    radialY = radialY / radialLength * direction;
+                    float jawX = x - 19 + radialX * 12;
+                    float jawY = y - 7 + radialY * 12;
+                    using (var jaw = new SolidBrush(Color.FromArgb(89, 164, 204)))
+                    using (var jawEdge = new Pen(Color.FromArgb(0, 91, 135)))
+                    {
+                        e.Graphics.FillRectangle(jaw, jawX, jawY, 38, 14);
+                        e.Graphics.DrawRectangle(jawEdge, jawX, jawY, 38, 14);
+                    }
+                }
+                using (var number = new SolidBrush(selected ? Color.White : Color.FromArgb(55, 62, 66)))
+                {
+                    string text = adapterIndex.ToString(CultureInfo.InvariantCulture);
+                    SizeF size = e.Graphics.MeasureString(text, Font);
+                    e.Graphics.DrawString(text, Font, number, x - size.Width / 2,
+                        y - size.Height / 2);
+                }
+            }
+        }
+
+        private static List<JawMountPoint> ReadJawMountPoints(string fixtureFile)
+        {
+            var result = new List<JawMountPoint>();
+            if (string.IsNullOrWhiteSpace(fixtureFile) || !File.Exists(fixtureFile))
+                return result;
+            try
+            {
+                XDocument document = XDocument.Load(fixtureFile);
+                foreach (XElement adapter in document.Descendants()
+                    .Where(node => node.Name.LocalName == "Adapter"))
+                {
+                    XElement translation = adapter.Descendants()
+                        .FirstOrDefault(node => node.Name.LocalName == "Translation");
+                    string[] coordinates = translation?.Attribute("trans")?.Value?
+                        .Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+                    if (coordinates == null || coordinates.Length < 3) continue;
+                    if (!double.TryParse(coordinates[0], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double x) ||
+                        !double.TryParse(coordinates[1], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double y) ||
+                        !double.TryParse(coordinates[2], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double z)) continue;
+                    result.Add(new JawMountPoint(x, y, z));
+                }
+            }
+            catch { }
+            return result;
+        }
+
         private void UpdateWorkZeroEditorLayout()
         {
             if (_zeroOptions == null) return;
@@ -1415,11 +1675,14 @@ namespace EspritSolidFixture
             bool manual = _zeroManual.Checked;
             _gripDepthLabel.Visible = hasJaws;
             _gripDepth.Visible = hasJaws;
+            UpdateJawConfigurationControls();
             _zeroOptions.SetCellPosition(_createWorkPlane,
                 new TableLayoutPanelCellPosition(hasJaws ? 2 : 0, 0));
             _zeroOptions.SetColumnSpan(_createWorkPlane, hasJaws ? 1 : 3);
             _zeroEditorLayout.RowStyles[1].Height = manual ? 42 : 0;
-            _zeroEditorPanel.Height = 16 + 38 + (manual ? 42 : 0) + 40 + 38;
+            _zeroEditorLayout.RowStyles[3].Height = hasJaws ? 145 : 0;
+            _zeroEditorPanel.Height = 16 + 38 + (manual ? 42 : 0) + 40 +
+                                      (hasJaws ? 145 : 0) + 38;
         }
 
         private void UpdateWorkZeroSummary(string zeroText = null,
@@ -1439,6 +1702,12 @@ namespace EspritSolidFixture
                 if (gripDepth.HasValue)
                     summary += "  •  Amarre " + gripDepth.Value.ToString(
                         "0.##", CultureInfo.CurrentCulture) + " mm";
+                MountingElementSpec jaws = CurrentJawSpec();
+                if (jaws != null)
+                    summary += jaws.JawAdapterIndices.Contains(3)
+                        ? "  •  Par exterior 3–4"
+                        : "  •  Par interior 1–2";
+                if (jaws?.ReverseJaws == true) summary += "  •  Invertidas";
             }
             _zeroSummaryText.Text = summary;
         }
@@ -3303,6 +3572,15 @@ namespace EspritSolidFixture
             return choice;
         }
 
+        private static RadioButton CompactChoice(string text, bool isChecked)
+        {
+            RadioButton choice = MountingChoice(text, isChecked);
+            choice.Margin = new Padding(0, 0, 4, 0);
+            choice.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular,
+                GraphicsUnit.Point);
+            return choice;
+        }
+
         private void StyleMountingChoices()
         {
             StyleMountingChoice(_mountBottom);
@@ -3417,6 +3695,20 @@ namespace EspritSolidFixture
             Bar,
             Solid,
             File
+        }
+
+        private struct JawMountPoint
+        {
+            public JawMountPoint(double x, double y, double z)
+            {
+                X = x;
+                Y = y;
+                Z = z;
+            }
+
+            public double X;
+            public double Y;
+            public double Z;
         }
 
         private sealed class PendingMount

@@ -473,12 +473,33 @@ namespace EspritSolidFixture
                             EspritConstants.espMachineItemType.espMachineItemTypeJaw))
                             throw new InvalidOperationException(
                                 "El accesorio seleccionado no admite garras en este punto del montaje.");
-                        // Cero permite que ESPRIT use la posición definida por el
-                        // propio conjunto de garras, sin pedir una apertura manual.
-                        mountingItems.AddJaws(element.FileName, 0.0);
+                        var jawAdaptors = new List<Esprit.Adaptor>();
+                        foreach (Esprit.Adaptor adaptor in topFixture.ChildAdaptors)
+                        {
+                            if (adaptor.AdaptorType ==
+                                EspritConstants.espAdaptorType.espAdaptorTypeJaw)
+                                jawAdaptors.Add(adaptor);
+                        }
+                        List<int> selectedAdaptors = element.JawAdapterIndices
+                            .Distinct().OrderBy(index => index).ToList();
+                        if (selectedAdaptors.Count == 0)
+                            throw new InvalidOperationException(
+                                "Seleccione al menos un punto de montaje para las garras.");
+                        if (selectedAdaptors.Any(index => index < 1 || index > jawAdaptors.Count))
+                            throw new InvalidOperationException(
+                                "El accesorio no dispone de todos los puntos de montaje seleccionados.");
+                        topFixture.ReverseJawsDirection = element.ReverseJaws;
+                        foreach (int adaptorIndex in selectedAdaptors)
+                        {
+                            // Cero permite que ESPRIT use la posición definida por
+                            // la garra sin solicitar una apertura manual.
+                            mountingItems.AddJaw(element.FileName, 0.0,
+                                jawAdaptors[adaptorIndex - 1]);
+                        }
                         pendingJawGripTranslation =
                             ReadJawTopZ(element.FileName) - Math.Abs(gripDepth) -
-                            ReadWorkpieceToJawAdapterOffset(topFixtureSourceFile);
+                            ReadWorkpieceToJawAdapterOffset(topFixtureSourceFile,
+                                selectedAdaptors[0]);
                     }
                 }
                 foreach (string path in paths)
@@ -718,7 +739,8 @@ namespace EspritSolidFixture
             public double Z;
         }
 
-        private static double ReadWorkpieceToJawAdapterOffset(string fixtureFile)
+        private static double ReadWorkpieceToJawAdapterOffset(string fixtureFile,
+            int jawAdapterIndex)
         {
             if (string.IsNullOrWhiteSpace(fixtureFile) || !File.Exists(fixtureFile))
                 throw new FileNotFoundException(
@@ -730,7 +752,8 @@ namespace EspritSolidFixture
                 XElement workpieceAdapter = document.Descendants()
                     .FirstOrDefault(node => node.Name.LocalName == "WorkpieceAdapter");
                 XElement jawAdapter = document.Descendants()
-                    .FirstOrDefault(node => node.Name.LocalName == "Adapter");
+                    .Where(node => node.Name.LocalName == "Adapter")
+                    .Skip(Math.Max(0, jawAdapterIndex - 1)).FirstOrDefault();
                 if (workpieceAdapter == null || jawAdapter == null)
                     throw new InvalidDataException(
                         "El accesorio no contiene un WorkpieceAdapter y un adaptador de garra.");
