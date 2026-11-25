@@ -1,5 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 
 namespace EspritSolidFixture
 {
@@ -7,6 +10,7 @@ namespace EspritSolidFixture
     {
         private static readonly Guid ClientGuid =
             new Guid("4D70C733-255D-4DF4-933D-88C56082C9D4");
+        private static int _previewPaneSuppressed;
 
         public static string Show(IntPtr owner, string title, string initialFolder)
         {
@@ -33,6 +37,7 @@ namespace EspritSolidFixture
                         typeof(IShellItem).GUID, out folder) == 0)
                     dialog.SetFolder(folder);
 
+                SuppressPreviewPane(title);
                 int resultCode = dialog.Show(owner);
                 if (resultCode == unchecked((int)0x800704C7)) return null;
                 Marshal.ThrowExceptionForHR(resultCode);
@@ -49,10 +54,82 @@ namespace EspritSolidFixture
             }
         }
 
+        private static void SuppressPreviewPane(string title)
+        {
+            if (Volatile.Read(ref _previewPaneSuppressed) != 0) return;
+            var thread = new Thread(() =>
+            {
+                int processId = Process.GetCurrentProcess().Id;
+                for (int attempt = 0; attempt < 30; attempt++)
+                {
+                    IntPtr dialogWindow = FindWindow(processId, title);
+                    if (dialogWindow != IntPtr.Zero)
+                    {
+                        Thread.Sleep(120);
+                        SetForegroundWindow(dialogWindow);
+                        // Alt+P es el comando nativo del Explorador para ocultar
+                        // el panel de vista previa. Se ejecuta una sola vez por
+                        // sesión de ESPRIT y Windows conserva después ese estado.
+                        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                        keybd_event(VK_P, 0, 0, UIntPtr.Zero);
+                        keybd_event(VK_P, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        Interlocked.Exchange(ref _previewPaneSuppressed, 1);
+                        return;
+                    }
+                    Thread.Sleep(50);
+                }
+            }) { IsBackground = true, Name = "GDML preview pane suppressor" };
+            thread.Start();
+        }
+
+        private static IntPtr FindWindow(int processId, string title)
+        {
+            IntPtr result = IntPtr.Zero;
+            EnumWindows((window, state) =>
+            {
+                GetWindowThreadProcessId(window, out uint windowProcessId);
+                if (windowProcessId != processId || !IsWindowVisible(window)) return true;
+                var text = new StringBuilder(256);
+                GetWindowText(window, text, text.Capacity);
+                if (!string.Equals(text.ToString(), title, StringComparison.Ordinal)) return true;
+                result = window;
+                return false;
+            }, IntPtr.Zero);
+            return result;
+        }
+
         [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
         private static extern int SHCreateItemFromParsingName(string path,
             IntPtr bindContext, [In] Guid interfaceId,
             [MarshalAs(UnmanagedType.Interface)] out IShellItem shellItem);
+
+        private delegate bool EnumWindowsProc(IntPtr window, IntPtr state);
+
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr state);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr window,
+            out uint processId);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr window);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr window, StringBuilder text,
+            int maximumCount);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr window);
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte virtualKey, byte scanCode,
+            uint flags, UIntPtr extraInfo);
+
+        private const byte VK_MENU = 0x12;
+        private const byte VK_P = 0x50;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
 
         [ComImport, Guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7")]
         private class FileOpenDialog { }
