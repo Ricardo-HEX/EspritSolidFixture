@@ -1748,17 +1748,20 @@ namespace EspritSolidFixture
             string summary = zeroText + "  •  " + planeText;
             if (HasMountedJaws())
             {
+                string jawSummary = string.Empty;
                 if (!gripDepth.HasValue && TryGetGripDepth(out double value))
                     gripDepth = value;
                 if (gripDepth.HasValue)
-                    summary += "  •  Amarre " + gripDepth.Value.ToString(
+                    jawSummary = "Amarre " + gripDepth.Value.ToString(
                         "0.##", CultureInfo.CurrentCulture) + " mm";
                 MountingElementSpec jaws = CurrentJawSpec();
                 if (jaws != null)
-                    summary += jaws.JawAdapterIndices.Contains(3)
+                    jawSummary += jaws.JawAdapterIndices.Contains(3)
                         ? "  •  Par exterior 3–4"
                         : "  •  Par interior 1–2";
-                if (jaws?.ReverseJaws == true) summary += "  •  Invertidas";
+                if (jaws?.ReverseJaws == true) jawSummary += "  •  Invertidas";
+                if (!string.IsNullOrWhiteSpace(jawSummary))
+                    summary += Environment.NewLine + jawSummary;
             }
             _zeroSummaryText.Text = summary;
         }

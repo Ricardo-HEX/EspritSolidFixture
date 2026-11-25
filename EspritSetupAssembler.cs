@@ -495,7 +495,13 @@ namespace EspritSolidFixture
                         for (int index = addedJaws.Length; index >= 1; index--)
                         {
                             if (!selectedAdaptors.Contains(index))
-                                mountingItems.Remove(addedJaws.GetValue(index - 1));
+                            {
+                                Esprit.Jaw jaw = addedJaws.GetValue(index - 1) as Esprit.Jaw;
+                                if (jaw == null || string.IsNullOrWhiteSpace(jaw.Key))
+                                    throw new InvalidOperationException(
+                                        "ESPRIT no devolvió una clave válida para la garra " + index + ".");
+                                mountingItems.Remove(jaw.Key);
+                            }
                         }
                         pendingJawGripTranslation =
                             ReadJawTopZ(element.FileName) - Math.Abs(gripDepth) -
