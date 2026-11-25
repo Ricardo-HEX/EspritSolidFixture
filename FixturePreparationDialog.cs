@@ -1237,11 +1237,15 @@ namespace EspritSolidFixture
         private void BrowseAccessory(object sender, EventArgs e)
         {
             PrepareForExtensionCommand();
-            string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
-            if (path == null) return;
-            _mountingElements.Add(new MountingElementSpec(
-                MountingElementType.Accessory, path));
-            RefreshState();
+            BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed || Disposing) return;
+                string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
+                if (path == null) return;
+                _mountingElements.Add(new MountingElementSpec(
+                    MountingElementType.Accessory, path));
+                RefreshState();
+            }));
         }
 
         private void BrowseJaws(object sender, EventArgs e)
@@ -1254,11 +1258,15 @@ namespace EspritSolidFixture
                     Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
-            if (path == null) return;
-            _mountingElements.Add(new MountingElementSpec(
-                MountingElementType.Jaws, path));
-            RefreshState();
+            BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed || Disposing) return;
+                string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
+                if (path == null) return;
+                _mountingElements.Add(new MountingElementSpec(
+                    MountingElementType.Jaws, path));
+                RefreshState();
+            }));
         }
 
         private void ToggleFixtureSelection(object sender, EventArgs e)
