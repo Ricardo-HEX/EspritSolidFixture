@@ -471,11 +471,11 @@ namespace EspritSolidFixture
                         // Cero permite que ESPRIT use la posición definida por el
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
-                        // El primer elemento sujeto debe bajar desde su Z superior
-                        // hasta el punto de montaje de las garras, dejando fuera
-                        // únicamente la profundidad de agarre indicada.
-                        nextMountLift = Math.Abs(gripDepth) -
-                            Math.Abs(grippedElementTopDistance);
+                        // La traslación es la distancia positiva desde el punto
+                        // de montaje de las garras hasta la Z superior, menos la
+                        // profundidad de agarre indicada.
+                        nextMountLift = Math.Abs(grippedElementTopDistance) -
+                            Math.Abs(gripDepth);
                     }
                 }
                 foreach (string path in paths)
