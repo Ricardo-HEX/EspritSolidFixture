@@ -309,7 +309,7 @@ namespace EspritSolidFixture
                 };
                 _stockParameterValues[index] = StockDimensionInput();
                 _stockParameterValues[index].TabIndex = index;
-                _stockParameterValues[index].Margin = new Padding(0, 0, 1, 2);
+                _stockParameterValues[index].Margin = new Padding(0);
                 _stockParameterValues[index].TextChanged += StockParameterOnChanged;
                 WireStockTabNavigation(_stockParameterValues[index]);
                 _stockAlignments[index] = StockAlignmentInput();
@@ -685,6 +685,16 @@ namespace EspritSolidFixture
                 BackColor = Color.Transparent,
                 Visible = false
             };
+            var zeroPointLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                BackColor = Color.Transparent
+            };
+            zeroPointLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            zeroPointLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 32));
             _zeroPointText = new Label
             {
                 Dock = DockStyle.Fill,
@@ -695,22 +705,36 @@ namespace EspritSolidFixture
                 Padding = new Padding(8, 0, 4, 0),
                 AutoEllipsis = true
             };
+            _zeroPointText.Margin = new Padding(0, 0, 4, 0);
             _zeroPick = new Button
             {
-                Dock = DockStyle.Right,
-                Width = 32,
                 Image = CreateSelectionCursorIcon(),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(26, 26),
+                Margin = new Padding(2, 1, 0, 0),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 Cursor = Cursors.Hand,
+                TabStop = true,
                 AccessibleName = "Seleccionar el cero de pieza en la vista"
             };
             _zeroPick.FlatAppearance.BorderSize = 0;
             _zeroPick.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 239, 167);
+            _zeroPick.FlatAppearance.MouseDownBackColor = Color.FromArgb(255, 224, 102);
             _zeroPick.Click += PickWorkZero;
+            _zeroPick.Enter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            _zeroPick.Leave += (s, e) => ShowNativeSelectionButtonBorder((Button)s, false);
+            _zeroPick.MouseEnter += (s, e) => ShowNativeSelectionButtonBorder((Button)s, true);
+            _zeroPick.MouseLeave += (s, e) =>
+            {
+                var button = (Button)s;
+                if (!button.Focused) ShowNativeSelectionButtonBorder(button, false);
+            };
             _toolTip.SetToolTip(_zeroPick, "Seleccionar el cero en la vista de pieza");
-            _zeroPointRow.Controls.Add(_zeroPointText);
-            _zeroPointRow.Controls.Add(_zeroPick);
+            zeroPointLayout.Controls.Add(_zeroPointText, 0, 0);
+            zeroPointLayout.Controls.Add(_zeroPick, 1, 0);
+            _zeroPointRow.Controls.Add(zeroPointLayout);
             _zeroEditorLayout.Controls.Add(_zeroPointRow, 0, 1);
 
             _zeroOptions = new TableLayoutPanel
@@ -1583,9 +1607,11 @@ namespace EspritSolidFixture
             {
                 Dock = DockStyle.Fill,
                 Text = "0,00",
-                TextAlign = HorizontalAlignment.Right,
+                TextAlign = HorizontalAlignment.Left,
                 BorderStyle = BorderStyle.FixedSingle,
                 BackColor = Color.White,
+                AutoSize = false,
+                Height = 27,
                 MaxLength = 16
             };
             input.HandleCreated += (sender, args) =>
@@ -1886,10 +1912,10 @@ namespace EspritSolidFixture
             _stockMarginValues[index, 0].Visible = showMargins;
             _stockMarginValues[index, 1].Visible = doubleMargin;
             _stockParameterValues[index].Margin =
-                new Padding(0, 0, showMargins ? 3 : 1, 2);
+                new Padding(0, 0, showMargins ? 3 : 0, 0);
             _stockMarginValues[index, 0].Margin = new Padding(showMargins ? 3 : 0, 0,
-                doubleMargin ? 3 : 0, 2);
-            _stockMarginValues[index, 1].Margin = new Padding(3, 0, 0, 2);
+                doubleMargin ? 3 : 0, 0);
+            _stockMarginValues[index, 1].Margin = new Padding(3, 0, 0, 0);
             _stockContext.Height = 130;
         }
 
