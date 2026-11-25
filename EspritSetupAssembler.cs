@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 
 namespace EspritSolidFixture
 {
@@ -442,6 +444,7 @@ namespace EspritSolidFixture
                 Esprit.Fixture rootFixture = null;
                 Esprit.Fixture topFixture = null;
                 bool applyJawGrip = false;
+                double? jawMountingPointZ = null;
                 foreach (MountingElementSpec element in bases)
                 {
                     if (element.Type == MountingElementType.Accessory)
@@ -453,7 +456,7 @@ namespace EspritSolidFixture
                         {
                             accessory.ZTranslation = accessory.ZTranslation +
                                 CalculateJawGripTranslation(accessory.RelativeTransformation,
-                                    grippedElementTopZ, gripDepth);
+                                    grippedElementTopZ, gripDepth, jawMountingPointZ);
                             applyJawGrip = false;
                         }
                         if (rootFixture == null) rootFixture = accessory;
@@ -473,6 +476,7 @@ namespace EspritSolidFixture
                         // Cero permite que ESPRIT use la posición definida por el
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
+                        jawMountingPointZ = TryReadWorkpieceAdapterZ(topFixture.FileName);
                         applyJawGrip = true;
                     }
                 }
@@ -485,7 +489,7 @@ namespace EspritSolidFixture
                     {
                         fixture.ZTranslation = fixture.ZTranslation +
                             CalculateJawGripTranslation(fixture.RelativeTransformation,
-                                grippedElementTopZ, gripDepth);
+                                grippedElementTopZ, gripDepth, jawMountingPointZ);
                         applyJawGrip = false;
                     }
                     if (rootFixture == null) rootFixture = fixture;
@@ -507,7 +511,7 @@ namespace EspritSolidFixture
                 if (applyJawGrip)
                     instance.ZTranslation = instance.ZTranslation +
                         CalculateJawGripTranslation(instance.RelativeTransformation,
-                            grippedElementTopZ, gripDepth);
+                            grippedElementTopZ, gripDepth, jawMountingPointZ);
                 if (rotateAssembly && rootFixture == null)
                 {
                     step = "girar la pieza 180 grados sobre Y y después sobre Z";
@@ -564,16 +568,51 @@ namespace EspritSolidFixture
 
         private static double CalculateJawGripTranslation(
             EspritGeometryBase.IComMatrix relativeTransformation,
-            double topZ, double gripDepth)
+            double topZ, double gripDepth, double? adapterZ)
         {
-            double mountingPointZ = 0.0;
+            double mountingPointZ;
+            if (adapterZ.HasValue)
+                mountingPointZ = adapterZ.Value;
+            else
+            {
+                mountingPointZ = 0.0;
+                try
+                {
+                    if (relativeTransformation?.P != null)
+                        mountingPointZ = relativeTransformation.P.Z;
+                }
+                catch { }
+            }
+            return topZ - mountingPointZ - Math.Abs(gripDepth);
+        }
+
+        private static double? TryReadWorkpieceAdapterZ(string fixtureFile)
+        {
+            if (string.IsNullOrWhiteSpace(fixtureFile) || !File.Exists(fixtureFile))
+                return null;
             try
             {
-                if (relativeTransformation?.P != null)
-                    mountingPointZ = relativeTransformation.P.Z;
+                XDocument document = XDocument.Load(fixtureFile);
+                XElement fixture = document.Descendants()
+                    .FirstOrDefault(node => node.Name.LocalName == "Fixture");
+                XElement adapter = fixture?.Elements()
+                    .LastOrDefault(node => node.Name.LocalName == "WorkpieceAdapter");
+                XElement translation = adapter?.Descendants()
+                    .FirstOrDefault(node => node.Name.LocalName == "Translation");
+                string vector = translation?.Attribute("trans")?.Value;
+                if (string.IsNullOrWhiteSpace(vector)) return 0.0;
+                string[] coordinates = vector.Split((char[])null,
+                    StringSplitOptions.RemoveEmptyEntries);
+                if (coordinates.Length < 3) return null;
+                return double.TryParse(coordinates[2], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double z)
+                    ? z
+                    : (double?)null;
             }
-            catch { }
-            return topZ - mountingPointZ - Math.Abs(gripDepth);
+            catch
+            {
+                return null;
+            }
         }
 
         private void CreateOrUpdateWorkPlane(string name, double x, double y, double z,
