@@ -1501,8 +1501,22 @@ namespace EspritSolidFixture
                     EspritConstants.espFileType.espFileTypeFixtures);
             }
             catch { }
-            return ModernGdmlFileDialog.Show(
-                Handle, title, Directory.Exists(folder) ? folder : null);
+            using (var dialog = new OpenFileDialog
+            {
+                Title = title,
+                Filter = "Accesorios ESPRIT (*.gdml)|*.gdml|Todos los archivos (*.*)|*.*",
+                InitialDirectory = Directory.Exists(folder) ? folder : string.Empty,
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false,
+                RestoreDirectory = true,
+                AutoUpgradeEnabled = true
+            })
+            {
+                return dialog.ShowDialog(this) == DialogResult.OK
+                    ? dialog.FileName
+                    : null;
+            }
         }
 
         private void RemoveMountingElement(object sender, EventArgs e)

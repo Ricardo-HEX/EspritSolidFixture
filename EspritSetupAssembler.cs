@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
 
@@ -572,17 +573,35 @@ namespace EspritSolidFixture
             try
             {
                 XDocument document = XDocument.Load(jawFile);
+                string programFolder = Path.GetDirectoryName(
+                    typeof(Esprit.Document).Assembly.Location);
+                Assembly gdmlAssembly = Assembly.LoadFrom(
+                    Path.Combine(programFolder, "gdml.dll"));
+                MethodInfo readFaceMesh = gdmlAssembly
+                    .GetType("gdml.FaceMeshExtensions", true)
+                    .GetMethod("ReadFromMemory", BindingFlags.Public | BindingFlags.Static);
+                if (readFaceMesh == null)
+                    throw new MissingMethodException(
+                        "No se encontró el lector de mallas GDML de ESPRIT.");
                 double maximumZ = double.NegativeInfinity;
                 foreach (XElement binary in document.Descendants()
                     .Where(node => node.Name.LocalName == "Binary"))
                 {
                     if (string.IsNullOrWhiteSpace(binary.Value)) continue;
                     byte[] data = Convert.FromBase64String(binary.Value);
-                    BinarySpaces.SimNCCoreApi.FaceMesh mesh =
-                        gdml.FaceMeshExtensions.ReadFromMemory(data);
-                    if (mesh == null || !mesh.IsValid) continue;
-                    foreach (BinarySpaces.SimNCApiBasics.SPoint3 vertex in mesh.Vertices)
-                        maximumZ = Math.Max(maximumZ, vertex.Z);
+                    object mesh = readFaceMesh.Invoke(null, new object[] { data });
+                    if (mesh == null) continue;
+                    Type meshType = mesh.GetType();
+                    if (!(bool)meshType.GetProperty("IsValid").GetValue(mesh)) continue;
+                    var vertices = meshType.GetProperty("Vertices").GetValue(mesh)
+                        as System.Collections.IEnumerable;
+                    if (vertices == null) continue;
+                    foreach (object vertex in vertices)
+                    {
+                        double z = Convert.ToDouble(vertex.GetType()
+                            .GetProperty("Z").GetValue(vertex), CultureInfo.InvariantCulture);
+                        maximumZ = Math.Max(maximumZ, z);
+                    }
                 }
                 if (double.IsNegativeInfinity(maximumZ))
                     throw new InvalidDataException(
