@@ -1509,7 +1509,12 @@ namespace EspritSolidFixture
                 CheckFileExists = true,
                 CheckPathExists = true,
                 Multiselect = false,
-                RestoreDirectory = true
+                RestoreDirectory = true,
+                // El diálogo moderno carga el controlador de vista previa de GDML.
+                // En algunos equipos este controlador bloquea el hilo principal de
+                // ESPRIT al seleccionar el archivo. El diálogo clásico evita por
+                // completo esa vista previa y devuelve únicamente la ruta elegida.
+                AutoUpgradeEnabled = false
             })
             {
                 return dialog.ShowDialog(this) == DialogResult.OK
