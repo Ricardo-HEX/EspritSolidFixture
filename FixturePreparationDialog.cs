@@ -1237,15 +1237,11 @@ namespace EspritSolidFixture
         private void BrowseAccessory(object sender, EventArgs e)
         {
             PrepareForExtensionCommand();
-            BeginInvoke(new Action(() =>
-            {
-                if (IsDisposed || Disposing) return;
-                string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
-                if (path == null) return;
-                _mountingElements.Add(new MountingElementSpec(
-                    MountingElementType.Accessory, path));
-                RefreshState();
-            }));
+            string path = BrowseFixtureFile("Seleccionar accesorio de ESPRIT");
+            if (path == null) return;
+            _mountingElements.Add(new MountingElementSpec(
+                MountingElementType.Accessory, path));
+            RefreshState();
         }
 
         private void BrowseJaws(object sender, EventArgs e)
@@ -1258,15 +1254,11 @@ namespace EspritSolidFixture
                     Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            BeginInvoke(new Action(() =>
-            {
-                if (IsDisposed || Disposing) return;
-                string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
-                if (path == null) return;
-                _mountingElements.Add(new MountingElementSpec(
-                    MountingElementType.Jaws, path));
-                RefreshState();
-            }));
+            string path = BrowseFixtureFile("Seleccionar garras de ESPRIT");
+            if (path == null) return;
+            _mountingElements.Add(new MountingElementSpec(
+                MountingElementType.Jaws, path));
+            RefreshState();
         }
 
         private void ToggleFixtureSelection(object sender, EventArgs e)
@@ -1509,8 +1501,7 @@ namespace EspritSolidFixture
                 CheckFileExists = true,
                 CheckPathExists = true,
                 Multiselect = false,
-                RestoreDirectory = true,
-                AutoUpgradeEnabled = true
+                RestoreDirectory = true
             })
             {
                 return dialog.ShowDialog(this) == DialogResult.OK
@@ -2757,6 +2748,7 @@ namespace EspritSolidFixture
             IReadOnlyList<string> paths = Array.Empty<string>();
             double mountingStackHeight = 0.0;
             double workOffsetBaseZ = 0.0;
+            double grippedElementTopZ = 0.0;
             try
             {
                 if (_fixtures.Count > 0)
@@ -2782,7 +2774,10 @@ namespace EspritSolidFixture
                     paths = exporter.Export(
                         orderedFixtures, folder, GetAutomaticPhaseNumber(),
                         _combine.Checked, _mountTop.Checked);
+                    grippedElementTopZ = fixtureBounds.Max(x => x.MaximumZ);
                 }
+                else if (HasMountedJaws())
+                    grippedElementTopZ = GetPartTopZ();
             }
             catch (Exception ex)
             {
@@ -2799,6 +2794,7 @@ namespace EspritSolidFixture
                 MountingStackHeight = mountingStackHeight,
                 WorkOffsetBaseZ = workOffsetBaseZ,
                 GripDepth = gripDepth,
+                GrippedElementTopZ = grippedElementTopZ,
                 WorkZero = new WorkZeroSpec
                 {
                     IsManual = _zeroManual.Checked,
@@ -2884,13 +2880,15 @@ namespace EspritSolidFixture
                         pending.Paths, pending.NewEspritPath, pending.NewMachinePath,
                         pending.SelectedPart, pending.RotateAssembly,
                         pending.MountingStackHeight, pending.WorkOffsetBaseZ,
-                        pending.GripDepth, pending.WorkZero, pending.BaseElements);
+                        pending.GripDepth, pending.GrippedElementTopZ,
+                        pending.WorkZero, pending.BaseElements);
                 else
                     assembler.MountFixturesAndWorkpiece(
                         pending.Paths, pending.CreateNewConfiguration,
                         pending.RotateAssembly, pending.MountingStackHeight,
                         pending.WorkOffsetBaseZ, pending.GripDepth,
-                        pending.WorkZero, pending.BaseElements);
+                        pending.GrippedElementTopZ, pending.WorkZero,
+                        pending.BaseElements);
             }
             catch (Exception ex)
             {
@@ -2956,6 +2954,39 @@ namespace EspritSolidFixture
         {
             var bounds = GetBounds(solid);
             return (bounds.MinimumZ, bounds.MaximumZ);
+        }
+
+        private double GetPartTopZ()
+        {
+            if (_part?.Solid != null) return GetZBounds(_part.Solid).Maximum;
+            try
+            {
+                Esprit.Document document = (Esprit.Document)_app.Document;
+                if (document.Workpieces.Count == 0 ||
+                    document.Workpieces[1].Parts.Count == 0)
+                    throw new InvalidOperationException(
+                        "No se encontró la geometría de la pieza existente.");
+
+                double maximum = double.NegativeInfinity;
+                foreach (Esprit.IGraphicObject geometry in
+                    document.Workpieces[1].Parts[1].Geometry)
+                {
+                    if (geometry is Esprit.Solid solid)
+                    {
+                        var bounds = GetZBounds(solid);
+                        maximum = Math.Max(maximum, bounds.Maximum);
+                    }
+                }
+                if (double.IsNegativeInfinity(maximum))
+                    throw new InvalidOperationException(
+                        "No se pudo calcular la Z superior de la pieza existente.");
+                return maximum;
+            }
+            catch (Exception ex) when (!(ex is InvalidOperationException))
+            {
+                throw new InvalidOperationException(
+                    "No se pudo calcular la Z superior de la pieza existente.", ex);
+            }
         }
 
         private static (double MinimumX, double MaximumX, double MinimumY,
@@ -3428,6 +3459,7 @@ namespace EspritSolidFixture
             public double MountingStackHeight { get; set; }
             public double WorkOffsetBaseZ { get; set; }
             public double GripDepth { get; set; }
+            public double GrippedElementTopZ { get; set; }
             public WorkZeroSpec WorkZero { get; set; }
             public string NewEspritPath { get; set; }
             public string NewMachinePath { get; set; }
