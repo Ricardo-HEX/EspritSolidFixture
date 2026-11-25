@@ -610,9 +610,15 @@ namespace EspritSolidFixture
                     if (vertices == null) continue;
                     foreach (object vertex in vertices)
                     {
-                        double z = Convert.ToDouble(vertex.GetType()
-                            .GetProperty("Z").GetValue(vertex), CultureInfo.InvariantCulture);
-                        maximumZ = Math.Max(maximumZ, z);
+                        Type vertexType = vertex.GetType();
+                        double x = Convert.ToDouble(vertexType.GetProperty("X")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        double y = Convert.ToDouble(vertexType.GetProperty("Y")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        double z = Convert.ToDouble(vertexType.GetProperty("Z")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        GdmlPoint transformed = ApplyGdmlTransformations(binary, x, y, z);
+                        maximumZ = Math.Max(maximumZ, transformed.Z);
                     }
                 }
                 if (double.IsNegativeInfinity(maximumZ))
@@ -626,6 +632,90 @@ namespace EspritSolidFixture
                     "No se pudo medir la altura de las garras desde su plano de montaje: " +
                     ex.Message, ex);
             }
+        }
+
+        private static GdmlPoint ApplyGdmlTransformations(
+            XElement geometryNode, double x, double y, double z)
+        {
+            var point = new GdmlPoint(x, y, z);
+            // Ancestors() devuelve primero el nodo más cercano. Ese es justamente
+            // el orden necesario: sólido local, grupo padre y grupos exteriores.
+            foreach (XElement owner in geometryNode.Ancestors())
+            {
+                XElement transformation = owner.Elements()
+                    .FirstOrDefault(node => node.Name.LocalName == "Transformation");
+                if (transformation == null) continue;
+
+                XElement rotation = transformation.Elements()
+                    .FirstOrDefault(node => node.Name.LocalName == "Rotation");
+                if (rotation != null && TryReadVector(
+                        rotation.Attribute("rotAxis")?.Value, out GdmlPoint axis) &&
+                    double.TryParse(rotation.Attribute("rotAngle")?.Value,
+                        NumberStyles.Float, CultureInfo.InvariantCulture,
+                        out double angle))
+                {
+                    GdmlPoint center = TryReadVector(
+                        rotation.Attribute("rotCenter")?.Value, out GdmlPoint parsedCenter)
+                        ? parsedCenter
+                        : new GdmlPoint(0.0, 0.0, 0.0);
+                    point = RotateAroundAxis(point, center, axis, angle);
+                }
+
+                XElement translation = transformation.Elements()
+                    .FirstOrDefault(node => node.Name.LocalName == "Translation");
+                if (translation != null && TryReadVector(
+                        translation.Attribute("trans")?.Value, out GdmlPoint offset))
+                    point = new GdmlPoint(
+                        point.X + offset.X, point.Y + offset.Y, point.Z + offset.Z);
+            }
+            return point;
+        }
+
+        private static GdmlPoint RotateAroundAxis(GdmlPoint point, GdmlPoint center,
+            GdmlPoint axis, double angleDegrees)
+        {
+            double length = Math.Sqrt(axis.X * axis.X + axis.Y * axis.Y + axis.Z * axis.Z);
+            if (length < 1e-12) return point;
+            double ux = axis.X / length, uy = axis.Y / length, uz = axis.Z / length;
+            double px = point.X - center.X, py = point.Y - center.Y,
+                pz = point.Z - center.Z;
+            double radians = angleDegrees * Math.PI / 180.0;
+            double cosine = Math.Cos(radians), sine = Math.Sin(radians);
+            double dot = ux * px + uy * py + uz * pz;
+            return new GdmlPoint(
+                center.X + px * cosine + (uy * pz - uz * py) * sine + ux * dot * (1 - cosine),
+                center.Y + py * cosine + (uz * px - ux * pz) * sine + uy * dot * (1 - cosine),
+                center.Z + pz * cosine + (ux * py - uy * px) * sine + uz * dot * (1 - cosine));
+        }
+
+        private static bool TryReadVector(string value, out GdmlPoint point)
+        {
+            point = new GdmlPoint();
+            string[] coordinates = value?.Split((char[])null,
+                StringSplitOptions.RemoveEmptyEntries);
+            if (coordinates == null || coordinates.Length < 3) return false;
+            if (!double.TryParse(coordinates[0], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double x) ||
+                !double.TryParse(coordinates[1], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double y) ||
+                !double.TryParse(coordinates[2], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double z)) return false;
+            point = new GdmlPoint(x, y, z);
+            return true;
+        }
+
+        private struct GdmlPoint
+        {
+            public GdmlPoint(double x, double y, double z)
+            {
+                X = x;
+                Y = y;
+                Z = z;
+            }
+
+            public double X;
+            public double Y;
+            public double Z;
         }
 
         private static double ReadWorkpieceToJawAdapterOffset(string fixtureFile)
