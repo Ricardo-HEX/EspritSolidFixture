@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -653,6 +654,61 @@ namespace EspritSolidFixture
                     "No se pudo medir la altura de las garras desde su plano de montaje: " +
                     ex.Message, ex);
             }
+        }
+
+        internal static List<PointF> ReadGdmlTopView(string gdmlFile)
+        {
+            var result = new List<PointF>();
+            if (string.IsNullOrWhiteSpace(gdmlFile) || !File.Exists(gdmlFile))
+                return result;
+            try
+            {
+                XDocument document = XDocument.Load(gdmlFile);
+                Assembly gdmlAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(assembly => string.Equals(
+                        assembly.GetName().Name, "gdml",
+                        StringComparison.OrdinalIgnoreCase));
+                if (gdmlAssembly == null)
+                {
+                    string executable = Process.GetCurrentProcess().MainModule?.FileName;
+                    string programFolder = Path.GetDirectoryName(executable);
+                    gdmlAssembly = Assembly.LoadFrom(Path.Combine(
+                        programFolder ?? string.Empty, "gdml.dll"));
+                }
+                MethodInfo readFaceMesh = gdmlAssembly
+                    .GetType("gdml.FaceMeshExtensions", true)
+                    .GetMethod("ReadFromMemory", BindingFlags.Public | BindingFlags.Static);
+                foreach (XElement binary in document.Descendants()
+                    .Where(node => node.Name.LocalName == "Binary"))
+                {
+                    if (string.IsNullOrWhiteSpace(binary.Value)) continue;
+                    object mesh = readFaceMesh?.Invoke(null,
+                        new object[] { Convert.FromBase64String(binary.Value) });
+                    if (mesh == null) continue;
+                    Type meshType = mesh.GetType();
+                    var vertices = meshType.GetProperty("Vertices")?.GetValue(mesh)
+                        as System.Collections.IEnumerable;
+                    if (vertices == null) continue;
+                    int sample = 0;
+                    foreach (object vertex in vertices)
+                    {
+                        // Un muestreo moderado conserva la silueta y evita que el
+                        // repintado de WinForms se vuelva pesado con mallas densas.
+                        if ((sample++ & 3) != 0) continue;
+                        Type vertexType = vertex.GetType();
+                        double x = Convert.ToDouble(vertexType.GetProperty("X")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        double y = Convert.ToDouble(vertexType.GetProperty("Y")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        double z = Convert.ToDouble(vertexType.GetProperty("Z")
+                            .GetValue(vertex), CultureInfo.InvariantCulture);
+                        GdmlPoint transformed = ApplyGdmlTransformations(binary, x, y, z);
+                        result.Add(new PointF((float)transformed.X, (float)transformed.Y));
+                    }
+                }
+            }
+            catch { }
+            return result;
         }
 
         private static GdmlPoint ApplyGdmlTransformations(

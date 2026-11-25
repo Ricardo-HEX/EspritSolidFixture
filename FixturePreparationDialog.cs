@@ -107,6 +107,8 @@ namespace EspritSolidFixture
         private string _stockFilePath;
         private string _newMachinePath;
         private bool _hasManualZero;
+        private string _jawPreviewFile;
+        private List<PointF> _jawGeometryPreview = new List<PointF>();
         private double _manualZeroX;
         private double _manualZeroY;
         private double _manualZeroZ;
@@ -782,8 +784,8 @@ namespace EspritSolidFixture
             _jawConfigurationPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0, 5, 0, 2),
-                Padding = new Padding(0),
+                Margin = new Padding(0, 7, 0, 3),
+                Padding = new Padding(8),
                 BackColor = Color.White,
                 Visible = false
             };
@@ -795,14 +797,14 @@ namespace EspritSolidFixture
                 Margin = new Padding(0),
                 Padding = new Padding(0)
             };
-            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+            jawLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
             jawLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            jawLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39));
+            jawLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
             _jawPreview = new PictureBox
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 7, 4),
+                Margin = new Padding(0, 0, 9, 3),
                 BackColor = Color.FromArgb(239, 244, 247),
                 BorderStyle = BorderStyle.FixedSingle,
                 SizeMode = PictureBoxSizeMode.Normal,
@@ -816,16 +818,16 @@ namespace EspritSolidFixture
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
                 RowCount = 4,
-                Margin = new Padding(7, 0, 0, 4),
+                Margin = new Padding(9, 0, 0, 3),
                 Padding = new Padding(0)
             };
-            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
-            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
-            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 25));
-            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 35));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            jawOptions.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
             jawOptions.Controls.Add(new Label
             {
-                Text = "Puntos de montaje",
+                Text = "Pareja de montaje",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.BottomLeft
             }, 0, 0);
@@ -870,11 +872,11 @@ namespace EspritSolidFixture
             jawLayout.Controls.Add(jawOptions, 1, 0);
             var previewHint = new Label
             {
-                Text = "Vista superior · La previsualización no modifica la máquina",
+                Text = "Geometría real · Vista superior · Solo previsualización",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 ForeColor = Color.FromArgb(78, 86, 92),
-                Padding = new Padding(8, 0, 0, 0)
+                Padding = new Padding(4, 0, 0, 0)
             };
             jawLayout.Controls.Add(previewHint, 0, 1);
             jawLayout.SetColumnSpan(previewHint, 2);
@@ -1555,7 +1557,18 @@ namespace EspritSolidFixture
             MountingElementSpec jaws = CurrentJawSpec();
             bool visible = jaws != null;
             _jawConfigurationPanel.Visible = visible;
-            if (!visible) return;
+            if (!visible)
+            {
+                _jawPreviewFile = null;
+                _jawGeometryPreview.Clear();
+                return;
+            }
+            if (!string.Equals(_jawPreviewFile, jaws.FileName,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                _jawPreviewFile = jaws.FileName;
+                _jawGeometryPreview = EspritSetupAssembler.ReadGdmlTopView(jaws.FileName);
+            }
             List<JawMountPoint> points = ReadJawMountPoints(jaws.ParentAccessoryFile);
             bool hasOuterPair = points.Count >= 4;
             _jawOuterPair.Enabled = hasOuterPair;
@@ -1581,8 +1594,8 @@ namespace EspritSolidFixture
             double minY = points.Min(point => point.Y), maxY = points.Max(point => point.Y);
             double rangeX = Math.Max(20.0, maxX - minX);
             double rangeY = Math.Max(20.0, maxY - minY);
-            var area = new RectangleF(20, 16, Math.Max(20, _jawPreview.Width - 40),
-                Math.Max(20, _jawPreview.Height - 32));
+            var area = new RectangleF(16, 18, Math.Max(20, _jawPreview.Width - 32),
+                Math.Max(20, _jawPreview.Height - 40));
             float scale = (float)Math.Min(area.Width / (rangeX + 35.0),
                 area.Height / (rangeY + 35.0));
             float centerX = area.Left + area.Width / 2F;
@@ -1590,11 +1603,11 @@ namespace EspritSolidFixture
             double dataCenterX = (minX + maxX) / 2.0;
             double dataCenterY = (minY + maxY) / 2.0;
 
-            using (var fixture = new SolidBrush(Color.FromArgb(192, 199, 203)))
-            using (var fixtureEdge = new Pen(Color.FromArgb(120, 130, 136)))
+            using (var fixture = new SolidBrush(Color.FromArgb(218, 223, 226)))
+            using (var fixtureEdge = new Pen(Color.FromArgb(151, 159, 164)))
             {
-                var body = new RectangleF(area.Left + 5, area.Top + 5,
-                    area.Width - 10, area.Height - 10);
+                var body = new RectangleF(area.Left + 3, area.Top + 3,
+                    area.Width - 6, area.Height - 6);
                 e.Graphics.FillRectangle(fixture, body);
                 e.Graphics.DrawRectangle(fixtureEdge, body.X, body.Y, body.Width, body.Height);
             }
@@ -1606,6 +1619,7 @@ namespace EspritSolidFixture
                 float y = centerY - (float)(point.Y - dataCenterY) * scale;
                 int adapterIndex = index + 1;
                 bool selected = jaws.JawAdapterIndices.Contains(adapterIndex);
+                OffsetCoincidentJaw(points, index, ref x, ref y);
                 using (var dot = new SolidBrush(selected ? EspritBlue : Color.White))
                 using (var edge = new Pen(selected ? EspritBlue : Color.FromArgb(105, 115, 121), 1.2F))
                 {
@@ -1614,20 +1628,8 @@ namespace EspritSolidFixture
                 }
                 if (selected)
                 {
-                    float direction = jaws.ReverseJaws ? -1F : 1F;
-                    float radialX = x - centerX, radialY = y - centerY;
-                    float radialLength = Math.Max(1F,
-                        (float)Math.Sqrt(radialX * radialX + radialY * radialY));
-                    radialX = radialX / radialLength * direction;
-                    radialY = radialY / radialLength * direction;
-                    float jawX = x - 19 + radialX * 12;
-                    float jawY = y - 7 + radialY * 12;
-                    using (var jaw = new SolidBrush(Color.FromArgb(89, 164, 204)))
-                    using (var jawEdge = new Pen(Color.FromArgb(0, 91, 135)))
-                    {
-                        e.Graphics.FillRectangle(jaw, jawX, jawY, 38, 14);
-                        e.Graphics.DrawRectangle(jawEdge, jawX, jawY, 38, 14);
-                    }
+                    DrawJawGeometry(e.Graphics, x, y, jaws.ReverseJaws,
+                        adapterIndex % 2 == 0);
                 }
                 using (var number = new SolidBrush(selected ? Color.White : Color.FromArgb(55, 62, 66)))
                 {
@@ -1636,6 +1638,66 @@ namespace EspritSolidFixture
                     e.Graphics.DrawString(text, Font, number, x - size.Width / 2,
                         y - size.Height / 2);
                 }
+            }
+
+            string viewText = _jawGeometryPreview.Count > 0
+                ? "Garra seleccionada"
+                : "Vista simplificada";
+            using (var caption = new SolidBrush(Color.FromArgb(70, 79, 84)))
+                e.Graphics.DrawString(viewText, Font, caption, area.Left + 5, 1);
+        }
+
+        private static void OffsetCoincidentJaw(IList<JawMountPoint> points, int index,
+            ref float x, ref float y)
+        {
+            JawMountPoint current = points[index];
+            var coincident = new List<int>();
+            for (int i = 0; i < points.Count; i++)
+                if (Math.Abs(points[i].X - current.X) < 0.01 &&
+                    Math.Abs(points[i].Y - current.Y) < 0.01)
+                    coincident.Add(i);
+            if (coincident.Count < 2) return;
+            int position = coincident.IndexOf(index);
+            x += position == 0 ? -19F : 19F;
+            y += position == 0 ? -3F : 3F;
+        }
+
+        private void DrawJawGeometry(Graphics graphics, float centerX, float centerY,
+            bool reversed, bool mirror)
+        {
+            if (_jawGeometryPreview.Count == 0)
+            {
+                using (var jaw = new SolidBrush(Color.FromArgb(89, 164, 204)))
+                using (var edge = new Pen(Color.FromArgb(0, 111, 164)))
+                {
+                    graphics.FillRectangle(jaw, centerX - 22, centerY - 7, 44, 14);
+                    graphics.DrawRectangle(edge, centerX - 22, centerY - 7, 44, 14);
+                }
+                return;
+            }
+
+            float minX = _jawGeometryPreview.Min(point => point.X);
+            float maxX = _jawGeometryPreview.Max(point => point.X);
+            float minY = _jawGeometryPreview.Min(point => point.Y);
+            float maxY = _jawGeometryPreview.Max(point => point.Y);
+            float rangeX = Math.Max(0.001F, maxX - minX);
+            float rangeY = Math.Max(0.001F, maxY - minY);
+            float geometryCenterX = (minX + maxX) / 2F;
+            float geometryCenterY = (minY + maxY) / 2F;
+            float geometryScale = Math.Min(48F / rangeX, 22F / rangeY);
+            using (var pointBrush = new SolidBrush(Color.FromArgb(185, 0, 126, 184)))
+            using (var outline = new Pen(Color.FromArgb(0, 94, 142), 1F))
+            {
+                foreach (PointF point in _jawGeometryPreview)
+                {
+                    float dx = (point.X - geometryCenterX) * geometryScale;
+                    float dy = (point.Y - geometryCenterY) * geometryScale;
+                    if (mirror) dx = -dx;
+                    if (reversed) { dx = -dx; dy = -dy; }
+                    graphics.FillRectangle(pointBrush, centerX + dx - 1F,
+                        centerY - dy - 1F, 2F, 2F);
+                }
+                graphics.DrawRectangle(outline, centerX - 25, centerY - 12, 50, 24);
             }
         }
 
@@ -1680,9 +1742,9 @@ namespace EspritSolidFixture
                 new TableLayoutPanelCellPosition(hasJaws ? 2 : 0, 0));
             _zeroOptions.SetColumnSpan(_createWorkPlane, hasJaws ? 1 : 3);
             _zeroEditorLayout.RowStyles[1].Height = manual ? 42 : 0;
-            _zeroEditorLayout.RowStyles[3].Height = hasJaws ? 145 : 0;
+            _zeroEditorLayout.RowStyles[3].Height = hasJaws ? 205 : 0;
             _zeroEditorPanel.Height = 16 + 38 + (manual ? 42 : 0) + 40 +
-                                      (hasJaws ? 145 : 0) + 38;
+                                      (hasJaws ? 205 : 0) + 38;
         }
 
         private void UpdateWorkZeroSummary(string zeroText = null,
