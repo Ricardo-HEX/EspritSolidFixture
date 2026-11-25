@@ -2961,7 +2961,11 @@ namespace EspritSolidFixture
 
         private double GetPartTopDistance()
         {
-            if (_part?.Solid != null) return GetZBounds(_part.Solid).Maximum;
+            if (_part?.Solid != null)
+            {
+                var bounds = GetZBounds(_part.Solid);
+                return bounds.Maximum - bounds.Minimum;
+            }
             try
             {
                 Esprit.Document document = (Esprit.Document)_app.Document;
@@ -2970,17 +2974,23 @@ namespace EspritSolidFixture
                     throw new InvalidOperationException(
                         "No se encontró la geometría de la pieza existente.");
 
+                double minimum = double.PositiveInfinity;
                 double maximum = double.NegativeInfinity;
                 foreach (Esprit.IGraphicObject geometry in
                     document.Workpieces[1].Parts[1].Geometry)
                 {
                     if (geometry is Esprit.Solid solid)
-                        maximum = Math.Max(maximum, GetZBounds(solid).Maximum);
+                    {
+                        var bounds = GetZBounds(solid);
+                        minimum = Math.Min(minimum, bounds.Minimum);
+                        maximum = Math.Max(maximum, bounds.Maximum);
+                    }
                 }
-                if (double.IsNegativeInfinity(maximum))
+                if (double.IsPositiveInfinity(minimum) ||
+                    double.IsNegativeInfinity(maximum))
                     throw new InvalidOperationException(
                         "No se pudo calcular la Z superior de la pieza existente.");
-                return maximum;
+                return maximum - minimum;
             }
             catch (Exception ex) when (!(ex is InvalidOperationException))
             {
