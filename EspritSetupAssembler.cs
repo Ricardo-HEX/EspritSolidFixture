@@ -474,28 +474,28 @@ namespace EspritSolidFixture
                             EspritConstants.espMachineItemType.espMachineItemTypeJaw))
                             throw new InvalidOperationException(
                                 "El accesorio seleccionado no admite garras en este punto del montaje.");
-                        var jawAdaptors = new List<Esprit.Adaptor>();
-                        foreach (Esprit.Adaptor adaptor in topFixture.ChildAdaptors)
-                        {
-                            if (adaptor.AdaptorType ==
-                                EspritConstants.espAdaptorType.espAdaptorTypeJaw)
-                                jawAdaptors.Add(adaptor);
-                        }
                         List<int> selectedAdaptors = element.JawAdapterIndices
                             .Distinct().OrderBy(index => index).ToList();
                         if (selectedAdaptors.Count == 0)
                             throw new InvalidOperationException(
                                 "Seleccione al menos un punto de montaje para las garras.");
-                        if (selectedAdaptors.Any(index => index < 1 || index > jawAdaptors.Count))
+                        topFixture.ReverseJawsDirection = element.ReverseJaws;
+                        // ESPRIT carga el GDML de garras una sola vez y devuelve una
+                        // instancia por cada punto de montaje del accesorio. Crear la
+                        // misma garra repetidamente con AddJaw deja referencias COM no
+                        // válidas en algunos conjuntos. Cargamos el conjunto nativo y
+                        // retiramos las posiciones que el usuario no ha seleccionado.
+                        Array addedJaws = mountingItems.AddJaws(element.FileName, 0.0);
+                        if (addedJaws == null || addedJaws.Length == 0)
+                            throw new InvalidOperationException(
+                                "ESPRIT no encontró puntos de montaje compatibles para las garras.");
+                        if (selectedAdaptors.Any(index => index < 1 || index > addedJaws.Length))
                             throw new InvalidOperationException(
                                 "El accesorio no dispone de todos los puntos de montaje seleccionados.");
-                        topFixture.ReverseJawsDirection = element.ReverseJaws;
-                        foreach (int adaptorIndex in selectedAdaptors)
+                        for (int index = addedJaws.Length; index >= 1; index--)
                         {
-                            // Cero permite que ESPRIT use la posición definida por
-                            // la garra sin solicitar una apertura manual.
-                            mountingItems.AddJaw(element.FileName, 0.0,
-                                jawAdaptors[adaptorIndex - 1]);
+                            if (!selectedAdaptors.Contains(index))
+                                mountingItems.Remove(addedJaws.GetValue(index - 1));
                         }
                         pendingJawGripTranslation =
                             ReadJawTopZ(element.FileName) - Math.Abs(gripDepth) -

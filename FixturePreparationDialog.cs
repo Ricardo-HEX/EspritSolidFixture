@@ -1590,88 +1590,77 @@ namespace EspritSolidFixture
             }
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            double minX = points.Min(point => point.X), maxX = points.Max(point => point.X);
-            double minY = points.Min(point => point.Y), maxY = points.Max(point => point.Y);
-            double rangeX = Math.Max(20.0, maxX - minX);
-            double rangeY = Math.Max(20.0, maxY - minY);
-            var area = new RectangleF(16, 18, Math.Max(20, _jawPreview.Width - 32),
-                Math.Max(20, _jawPreview.Height - 40));
-            float scale = (float)Math.Min(area.Width / (rangeX + 35.0),
-                area.Height / (rangeY + 35.0));
+            var area = new RectangleF(13, 22, Math.Max(20, _jawPreview.Width - 26),
+                Math.Max(20, _jawPreview.Height - 30));
             float centerX = area.Left + area.Width / 2F;
             float centerY = area.Top + area.Height / 2F;
-            double dataCenterX = (minX + maxX) / 2.0;
-            double dataCenterY = (minY + maxY) / 2.0;
 
             using (var fixture = new SolidBrush(Color.FromArgb(218, 223, 226)))
             using (var fixtureEdge = new Pen(Color.FromArgb(151, 159, 164)))
             {
-                var body = new RectangleF(area.Left + 3, area.Top + 3,
-                    area.Width - 6, area.Height - 6);
+                var body = new RectangleF(area.Left, area.Top,
+                    area.Width, area.Height);
                 e.Graphics.FillRectangle(fixture, body);
                 e.Graphics.DrawRectangle(fixtureEdge, body.X, body.Y, body.Width, body.Height);
             }
 
-            for (int index = 0; index < points.Count; index++)
-            {
-                JawMountPoint point = points[index];
-                float x = centerX + (float)(point.X - dataCenterX) * scale;
-                float y = centerY - (float)(point.Y - dataCenterY) * scale;
-                int adapterIndex = index + 1;
-                bool selected = jaws.JawAdapterIndices.Contains(adapterIndex);
-                OffsetCoincidentJaw(points, index, ref x, ref y);
-                using (var dot = new SolidBrush(selected ? EspritBlue : Color.White))
-                using (var edge = new Pen(selected ? EspritBlue : Color.FromArgb(105, 115, 121), 1.2F))
-                {
-                    e.Graphics.FillEllipse(dot, x - 8, y - 8, 16, 16);
-                    e.Graphics.DrawEllipse(edge, x - 8, y - 8, 16, 16);
-                }
-                if (selected)
-                {
-                    DrawJawGeometry(e.Graphics, x, y, jaws.ReverseJaws,
-                        adapterIndex % 2 == 0);
-                }
-                using (var number = new SolidBrush(selected ? Color.White : Color.FromArgb(55, 62, 66)))
-                {
-                    string text = adapterIndex.ToString(CultureInfo.InvariantCulture);
-                    SizeF size = e.Graphics.MeasureString(text, Font);
-                    e.Graphics.DrawString(text, Font, number, x - size.Width / 2,
-                        y - size.Height / 2);
-                }
-            }
+            bool outerPair = jaws.JawAdapterIndices.Contains(3);
+            float separation = outerPair ? area.Height * 0.32F : area.Height * 0.20F;
+            float jawWidth = Math.Min(116F, area.Width * 0.58F);
+            float jawHeight = Math.Min(34F, area.Height * 0.27F);
+            float upperY = centerY - separation;
+            float lowerY = centerY + separation;
+            DrawJawGeometry(e.Graphics, centerX, upperY, jawWidth, jawHeight,
+                !jaws.ReverseJaws);
+            DrawJawGeometry(e.Graphics, centerX, lowerY, jawWidth, jawHeight,
+                jaws.ReverseJaws);
+
+            int first = outerPair ? 3 : 1;
+            DrawJawNumber(e.Graphics, centerX - jawWidth / 2F - 12F, upperY,
+                first, true);
+            DrawJawNumber(e.Graphics, centerX - jawWidth / 2F - 12F, lowerY,
+                first + 1, true);
+            int otherFirst = outerPair ? 1 : 3;
+            DrawJawNumber(e.Graphics, area.Right - 12F, centerY - 10F,
+                otherFirst, false);
+            DrawJawNumber(e.Graphics, area.Right - 12F, centerY + 10F,
+                otherFirst + 1, false);
 
             string viewText = _jawGeometryPreview.Count > 0
-                ? "Garra seleccionada"
+                ? "Vista superior de las garras"
                 : "Vista simplificada";
             using (var caption = new SolidBrush(Color.FromArgb(70, 79, 84)))
-                e.Graphics.DrawString(viewText, Font, caption, area.Left + 5, 1);
+                e.Graphics.DrawString(viewText, Font, caption, area.Left, 2);
         }
 
-        private static void OffsetCoincidentJaw(IList<JawMountPoint> points, int index,
-            ref float x, ref float y)
+        private void DrawJawNumber(Graphics graphics, float x, float y, int number,
+            bool selected)
         {
-            JawMountPoint current = points[index];
-            var coincident = new List<int>();
-            for (int i = 0; i < points.Count; i++)
-                if (Math.Abs(points[i].X - current.X) < 0.01 &&
-                    Math.Abs(points[i].Y - current.Y) < 0.01)
-                    coincident.Add(i);
-            if (coincident.Count < 2) return;
-            int position = coincident.IndexOf(index);
-            x += position == 0 ? -19F : 19F;
-            y += position == 0 ? -3F : 3F;
+            using (var fill = new SolidBrush(selected ? EspritBlue : Color.White))
+            using (var edge = new Pen(selected ? EspritBlue : Color.FromArgb(130, 139, 144)))
+            using (var text = new SolidBrush(selected ? Color.White : Color.FromArgb(70, 78, 83)))
+            {
+                graphics.FillEllipse(fill, x - 8, y - 8, 16, 16);
+                graphics.DrawEllipse(edge, x - 8, y - 8, 16, 16);
+                string value = number.ToString(CultureInfo.InvariantCulture);
+                SizeF size = graphics.MeasureString(value, Font);
+                graphics.DrawString(value, Font, text, x - size.Width / 2F,
+                    y - size.Height / 2F);
+            }
         }
 
         private void DrawJawGeometry(Graphics graphics, float centerX, float centerY,
-            bool reversed, bool mirror)
+            float width, float height, bool rotate180)
         {
             if (_jawGeometryPreview.Count == 0)
             {
-                using (var jaw = new SolidBrush(Color.FromArgb(89, 164, 204)))
-                using (var edge = new Pen(Color.FromArgb(0, 111, 164)))
+                using (var jaw = new SolidBrush(Color.FromArgb(180, 196, 204)))
+                using (var edge = new Pen(Color.FromArgb(78, 105, 117)))
                 {
-                    graphics.FillRectangle(jaw, centerX - 22, centerY - 7, 44, 14);
-                    graphics.DrawRectangle(edge, centerX - 22, centerY - 7, 44, 14);
+                    graphics.FillRectangle(jaw, centerX - width / 2F,
+                        centerY - height / 2F, width, height);
+                    graphics.DrawRectangle(edge, centerX - width / 2F,
+                        centerY - height / 2F, width, height);
                 }
                 return;
             }
@@ -1684,20 +1673,20 @@ namespace EspritSolidFixture
             float rangeY = Math.Max(0.001F, maxY - minY);
             float geometryCenterX = (minX + maxX) / 2F;
             float geometryCenterY = (minY + maxY) / 2F;
-            float geometryScale = Math.Min(48F / rangeX, 22F / rangeY);
-            using (var pointBrush = new SolidBrush(Color.FromArgb(185, 0, 126, 184)))
-            using (var outline = new Pen(Color.FromArgb(0, 94, 142), 1F))
+            float geometryScale = Math.Min(width / rangeX, height / rangeY);
+            using (var shadow = new SolidBrush(Color.FromArgb(205, 104, 128, 139)))
+            using (var pointBrush = new SolidBrush(Color.FromArgb(220, 54, 102, 123)))
             {
+                graphics.FillRectangle(shadow, centerX - width / 2F,
+                    centerY - height / 2F, width, height);
                 foreach (PointF point in _jawGeometryPreview)
                 {
                     float dx = (point.X - geometryCenterX) * geometryScale;
                     float dy = (point.Y - geometryCenterY) * geometryScale;
-                    if (mirror) dx = -dx;
-                    if (reversed) { dx = -dx; dy = -dy; }
-                    graphics.FillRectangle(pointBrush, centerX + dx - 1F,
-                        centerY - dy - 1F, 2F, 2F);
+                    if (rotate180) { dx = -dx; dy = -dy; }
+                    graphics.FillRectangle(pointBrush, centerX + dx - 0.7F,
+                        centerY - dy - 0.7F, 1.4F, 1.4F);
                 }
-                graphics.DrawRectangle(outline, centerX - 25, centerY - 12, 50, 24);
             }
         }
 
