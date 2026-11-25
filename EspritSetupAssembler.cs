@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -472,7 +473,8 @@ namespace EspritSolidFixture
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
                         pendingJawGripTranslation =
-                            ReadJawTopZ(element.FileName) - Math.Abs(gripDepth);
+                            ReadJawTopZ(element.FileName) - Math.Abs(gripDepth) -
+                            ReadWorkpieceToJawAdapterOffset(topFixture.FileName);
                     }
                 }
                 foreach (string path in paths)
@@ -590,6 +592,50 @@ namespace EspritSolidFixture
                     "No se pudo medir la altura de las garras desde su plano de montaje: " +
                     ex.Message, ex);
             }
+        }
+
+        private static double ReadWorkpieceToJawAdapterOffset(string fixtureFile)
+        {
+            if (string.IsNullOrWhiteSpace(fixtureFile) || !File.Exists(fixtureFile))
+                throw new FileNotFoundException(
+                    "No se encontró el GDML del accesorio que contiene las garras.",
+                    fixtureFile);
+            try
+            {
+                XDocument document = XDocument.Load(fixtureFile);
+                XElement workpieceAdapter = document.Descendants()
+                    .FirstOrDefault(node => node.Name.LocalName == "WorkpieceAdapter");
+                XElement jawAdapter = document.Descendants()
+                    .FirstOrDefault(node => node.Name.LocalName == "Adapter");
+                if (workpieceAdapter == null || jawAdapter == null)
+                    throw new InvalidDataException(
+                        "El accesorio no contiene un WorkpieceAdapter y un adaptador de garra.");
+
+                double workpieceZ = ReadTranslationZ(workpieceAdapter, "WorkpieceAdapter");
+                double adapterZ = ReadTranslationZ(jawAdapter, "adaptador de garra");
+                return workpieceZ - adapterZ;
+            }
+            catch (Exception ex) when (!(ex is FileNotFoundException))
+            {
+                throw new InvalidDataException(
+                    "No se pudo calcular la diferencia entre el WorkpieceAdapter y " +
+                    "el adaptador de las garras: " + ex.Message, ex);
+            }
+        }
+
+        private static double ReadTranslationZ(XElement node, string description)
+        {
+            XElement translation = node.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName == "Translation");
+            string value = translation?.Attribute("trans")?.Value;
+            string[] coordinates = value?.Split((char[])null,
+                StringSplitOptions.RemoveEmptyEntries);
+            if (coordinates == null || coordinates.Length < 3 ||
+                !double.TryParse(coordinates[2], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out double z))
+                throw new InvalidDataException(
+                    "No se encontró una coordenada Z válida en el " + description + ".");
+            return z;
         }
 
         private void CreateOrUpdateWorkPlane(string name, double x, double y, double z,
