@@ -168,7 +168,7 @@ namespace EspritSolidFixture
         public void CreateNewPhaseFile(IEnumerable<string> fixturePaths, string newEspritPath,
             string machinePath, Esprit.Solid selectedPart, bool rotateAssembly,
             double mountingStackHeight, double workOffsetBaseZ,
-            double gripDepth, WorkZeroSpec workZero,
+            double gripDepth, double grippedElementTopDistance, WorkZeroSpec workZero,
             IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
@@ -236,7 +236,8 @@ namespace EspritSolidFixture
 
                 step = "crear el nuevo montaje";
                 MountFixturesAndWorkpiece(paths, false, rotateAssembly,
-                    mountingStackHeight, workOffsetBaseZ, gripDepth, workZero, bases);
+                    mountingStackHeight, workOffsetBaseZ, gripDepth,
+                    grippedElementTopDistance, workZero, bases);
                 step = "guardar el nuevo archivo ESPRIT";
                 _document.Save();
             }
@@ -394,7 +395,8 @@ namespace EspritSolidFixture
 
         public void MountFixturesAndWorkpiece(IEnumerable<string> fixturePaths,
             bool createNewConfiguration, bool rotateAssembly, double mountingStackHeight,
-            double workOffsetBaseZ, double gripDepth, WorkZeroSpec workZero,
+            double workOffsetBaseZ, double gripDepth, double grippedElementTopDistance,
+            WorkZeroSpec workZero,
             IEnumerable<MountingElementSpec> baseElements = null)
         {
             var paths = fixturePaths.Where(File.Exists).ToList();
@@ -469,9 +471,11 @@ namespace EspritSolidFixture
                         // Cero permite que ESPRIT use la posición definida por el
                         // propio conjunto de garras, sin pedir una apertura manual.
                         mountingItems.AddJaws(element.FileName, 0.0);
-                        // ESPRIT sitúa el siguiente elemento en la parte superior
-                        // de las garras. Se baja la profundidad de amarre elegida.
-                        nextMountLift = -Math.Abs(gripDepth);
+                        // El primer elemento sujeto debe bajar desde su Z superior
+                        // hasta el punto de montaje de las garras, dejando fuera
+                        // únicamente la profundidad de agarre indicada.
+                        nextMountLift = Math.Abs(gripDepth) -
+                            Math.Abs(grippedElementTopDistance);
                     }
                 }
                 foreach (string path in paths)
